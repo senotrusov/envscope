@@ -12,12 +12,13 @@ import (
 
 // EnvVar represents a parsed environment variable configuration.
 type EnvVar struct {
-	Name      string
-	Value     string
-	Prepend   bool
-	IsPath    bool
-	IsDynamic bool
-	Cache     bool
+	Name       string
+	Value      string
+	Prepend    bool
+	IsPath     bool
+	IsDynamic  bool
+	Cache      bool
+	CacheIndex int
 }
 
 // Zone represents a single path and its variable definitions.
@@ -270,13 +271,18 @@ func generateBash(zones []Zone, allVars []string, report bool) {
 	generateRestoreFunction(&builder, allVars, report)
 	generateParentMap(&builder, zones)
 
-	// Map each variable to a deterministic numeric index based on parsed order.
-	varIndexMap := make(map[string]int)
-	for i, v := range allVars {
-		varIndexMap[v] = i
+	// Pre-calculate deterministic integer indices for all dynamic cached variables.
+	cacheCounter := 0
+	for i := range zones {
+		for j := range zones[i].Vars {
+			if zones[i].Vars[j].Cache {
+				zones[i].Vars[j].CacheIndex = cacheCounter
+				cacheCounter++
+			}
+		}
 	}
 
-	generateApplyOneZoneFunction(&builder, zones, varIndexMap, report)
+	generateApplyOneZoneFunction(&builder, zones, report)
 	generateApplyStackFunction(&builder)
 	generateHookFunction(&builder, zones, allVars)
 
@@ -284,10 +290,10 @@ func generateBash(zones []Zone, allVars []string, report bool) {
 }
 
 // generateBashHeader sets up initial runtime states resilient against `set -u`
-// and creates the global associative cache array.
+// and creates the global indexed cache array.
 func generateBashHeader(builder *strings.Builder) {
 	builder.WriteString("__ENVSCP_ZONE=${__ENVSCP_ZONE:-\"NONE\"}\n")
-	builder.WriteString("declare -A __ENVSCP_C 2>/dev/null || true\n\n")
+	builder.WriteString("declare -a __ENVSCP_C 2>/dev/null || true\n\n")
 }
 
 // generateSaveFunction creates a Bash function to compactly store the original
@@ -338,14 +344,14 @@ func generateParentMap(builder *strings.Builder, zones []Zone) {
 
 // generateApplyOneZoneFunction constructs the bash `case` structure for applying
 // the variables of a single zone, with optional reporting of added variables.
-func generateApplyOneZoneFunction(builder *strings.Builder, zones []Zone, varIndexMap map[string]int, report bool) {
+func generateApplyOneZoneFunction(builder *strings.Builder, zones []Zone, report bool) {
 	builder.WriteString("__envscope_apply_one_zone() {\n")
 	builder.WriteString("  local zone=\"$1\"\n")
 	builder.WriteString("  case \"$zone\" in\n")
 	for _, z := range zones {
 		builder.WriteString(fmt.Sprintf("    %s)\n", z.ID))
 		for _, ev := range z.Vars {
-			valueExpression := generateValueExpression(builder, z.ID, ev, varIndexMap[ev.Name])
+			valueExpression := generateValueExpression(builder, ev)
 			if ev.Prepend {
 				sep := ""
 				if ev.IsPath {
@@ -375,7 +381,7 @@ func escapeSingleQuotes(s string) string {
 // generateValueExpression determines how a variable value should be expressed in Bash.
 // Plain text is strictly single-quoted to prevent unintended shell evaluation.
 // Dynamic commands are safely delivered via $(eval '...').
-func generateValueExpression(builder *strings.Builder, zoneID string, ev EnvVar, varIndex int) string {
+func generateValueExpression(builder *strings.Builder, ev EnvVar) string {
 	escapedVal := escapeSingleQuotes(ev.Value)
 	var expr string
 	if ev.IsDynamic {
@@ -385,11 +391,10 @@ func generateValueExpression(builder *strings.Builder, zoneID string, ev EnvVar,
 	}
 
 	if ev.IsDynamic && ev.Cache {
-		cacheKey := fmt.Sprintf("%s_%d", zoneID, varIndex)
-		builder.WriteString(fmt.Sprintf("      if [[ -z \"${__ENVSCP_C[%s]:-}\" ]]; then\n", cacheKey))
-		builder.WriteString(fmt.Sprintf("        __ENVSCP_C[%s]=%s\n", cacheKey, expr))
+		builder.WriteString(fmt.Sprintf("      if [[ -z \"${__ENVSCP_C[%d]:-}\" ]]; then\n", ev.CacheIndex))
+		builder.WriteString(fmt.Sprintf("        __ENVSCP_C[%d]=%s\n", ev.CacheIndex, expr))
 		builder.WriteString("      fi\n")
-		return fmt.Sprintf("\"${__ENVSCP_C[%s]}\"", cacheKey)
+		return fmt.Sprintf("\"${__ENVSCP_C[%d]}\"", ev.CacheIndex)
 	}
 	return expr
 }
