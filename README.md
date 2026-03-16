@@ -51,7 +51,7 @@ Unlike many environment managers that search for `.env` files in every directory
 
 The configuration file is located at `~/.config/envscope/main.conf`.
 
-- **Paths:** Start at the beginning of the line. Paths starting with `/` are absolute. All other paths are relative to your home directory.
+- **Paths:** Start at the beginning of the line. Paths starting with `/` are absolute. All other paths are relative to your home directory. You can use a single dot `.` to represent your home directory itself.
 - **Variables:** Must be indented with at least one space or tab. Variables are validated to ensure they conform to POSIX standard naming conventions (`^[a-zA-Z_][a-zA-Z0-9_]*$`).
 - **Prepending:** Use `+VAR=value` to prepend to an existing variable. If the variable is `PATH`, it automatically handles the `:` separator.
 - **Values and Quoting:**

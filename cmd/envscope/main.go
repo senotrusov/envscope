@@ -131,7 +131,7 @@ func parseConfig(configPath, homeDir string) ([]Zone, []string, error) {
 		bestParentIdx := -1
 		// Find the longest path among preceding zones that is a prefix.
 		for j := 0; j < i; j++ {
-			if strings.HasPrefix(zones[i].Path, zones[j].Path+"/") {
+			if zones[j].Path == "/" || strings.HasPrefix(zones[i].Path, zones[j].Path+"/") {
 				if bestParentIdx == -1 || len(zones[j].Path) > len(zones[bestParentIdx].Path) {
 					bestParentIdx = j
 				}
@@ -269,49 +269,58 @@ func generateBash(zones []Zone, allVars []string, report bool) {
 	generateSaveFunction(&builder, allVars)
 	generateRestoreFunction(&builder, allVars, report)
 	generateParentMap(&builder, zones)
-	generateApplyOneZoneFunction(&builder, zones, report)
+
+	// Map each variable to a deterministic numeric index based on parsed order.
+	varIndexMap := make(map[string]int)
+	for i, v := range allVars {
+		varIndexMap[v] = i
+	}
+
+	generateApplyOneZoneFunction(&builder, zones, varIndexMap, report)
 	generateApplyStackFunction(&builder)
 	generateHookFunction(&builder, zones, allVars)
 
 	fmt.Print(builder.String())
 }
 
-// generateBashHeader sets up initial runtime states resilient against `set -u`.
+// generateBashHeader sets up initial runtime states resilient against `set -u`
+// and creates the global associative cache array.
 func generateBashHeader(builder *strings.Builder) {
-	builder.WriteString("__ENVSCP_ZONE=${__ENVSCP_ZONE:-\"NONE\"}\n\n")
+	builder.WriteString("__ENVSCP_ZONE=${__ENVSCP_ZONE:-\"NONE\"}\n")
+	builder.WriteString("declare -A __ENVSCP_C 2>/dev/null || true\n\n")
 }
 
-// generateSaveFunction creates a Bash function to store the original environment
-// state before any modifications are applied.
+// generateSaveFunction creates a Bash function to compactly store the original
+// environment state before any modifications are applied using indexed arrays.
 func generateSaveFunction(builder *strings.Builder, allVars []string) {
 	builder.WriteString("__envscope_save_outer() {\n")
-	for _, v := range allVars {
-		builder.WriteString(fmt.Sprintf(`  if [[ -n "${%s+x}" ]]; then
-    __ENVSCP_OUTERHAD_%s=1
-    __ENVSCP_OUTER_%s="$%s"
-  else
-    __ENVSCP_OUTERHAD_%s=0
-  fi
-`, v, v, v, v, v))
+	builder.WriteString("  __ENVSCP_H=()\n")
+	builder.WriteString("  __ENVSCP_O=()\n")
+	for i, v := range allVars {
+		builder.WriteString(fmt.Sprintf("  [[ -n \"${%s+x}\" ]] && { __ENVSCP_H[%d]=1; __ENVSCP_O[%d]=\"$%s\"; } || __ENVSCP_H[%d]=0\n", v, i, i, v, i))
 	}
 	builder.WriteString("}\n\n")
 }
 
 // generateRestoreFunction creates a Bash function that reverts variables to their
-// original "outer" state, optionally reporting changes to stderr.
+// original "outer" state from indexed arrays, optionally reporting changes.
 func generateRestoreFunction(builder *strings.Builder, allVars []string, report bool) {
 	builder.WriteString("__envscope_restore_outer() {\n")
-	for _, v := range allVars {
-		builder.WriteString(fmt.Sprintf(`  if [[ "${%s:-}" == "${__ENVSCP_LAST_%s:-}" ]]; then
-    if [[ ${__ENVSCP_OUTERHAD_%s:-0} -eq 1 ]]; then
-      export %s="${__ENVSCP_OUTER_%s:-}"
-    else
-      unset %s
-`, v, v, v, v, v, v))
+	for i, v := range allVars {
+		builder.WriteString(fmt.Sprintf("  if [[ \"${%s:-}\" == \"${__ENVSCP_L[%d]:-}\" ]]; then\n", v, i))
+		builder.WriteString(fmt.Sprintf("    if [[ ${__ENVSCP_H[%d]:-0} -eq 1 ]]; then\n", i))
+		builder.WriteString(fmt.Sprintf("      export %s=\"${__ENVSCP_O[%d]:-}\"\n", v, i))
+		builder.WriteString("    else\n")
 		if report {
-			builder.WriteString(fmt.Sprintf("      echo \"envscope: removed %s\" >&2\n", v))
+			builder.WriteString(fmt.Sprintf("      if [[ -n \"${%s+x}\" ]]; then\n", v))
+			builder.WriteString(fmt.Sprintf("        unset %s\n", v))
+			builder.WriteString(fmt.Sprintf("        echo \"envscope: removed %s\" >&2\n", v))
+			builder.WriteString("      fi\n")
+		} else {
+			builder.WriteString(fmt.Sprintf("      unset %s\n", v))
 		}
-		builder.WriteString("    fi\n  fi\n")
+		builder.WriteString("    fi\n")
+		builder.WriteString("  fi\n")
 	}
 	builder.WriteString("}\n\n")
 }
@@ -329,14 +338,14 @@ func generateParentMap(builder *strings.Builder, zones []Zone) {
 
 // generateApplyOneZoneFunction constructs the bash `case` structure for applying
 // the variables of a single zone, with optional reporting of added variables.
-func generateApplyOneZoneFunction(builder *strings.Builder, zones []Zone, report bool) {
+func generateApplyOneZoneFunction(builder *strings.Builder, zones []Zone, varIndexMap map[string]int, report bool) {
 	builder.WriteString("__envscope_apply_one_zone() {\n")
 	builder.WriteString("  local zone=\"$1\"\n")
 	builder.WriteString("  case \"$zone\" in\n")
 	for _, z := range zones {
 		builder.WriteString(fmt.Sprintf("    %s)\n", z.ID))
 		for _, ev := range z.Vars {
-			valueExpression := generateValueExpression(builder, z.ID, ev)
+			valueExpression := generateValueExpression(builder, z.ID, ev, varIndexMap[ev.Name])
 			if ev.Prepend {
 				sep := ""
 				if ev.IsPath {
@@ -366,7 +375,7 @@ func escapeSingleQuotes(s string) string {
 // generateValueExpression determines how a variable value should be expressed in Bash.
 // Plain text is strictly single-quoted to prevent unintended shell evaluation.
 // Dynamic commands are safely delivered via $(eval '...').
-func generateValueExpression(builder *strings.Builder, zoneID string, ev EnvVar) string {
+func generateValueExpression(builder *strings.Builder, zoneID string, ev EnvVar, varIndex int) string {
 	escapedVal := escapeSingleQuotes(ev.Value)
 	var expr string
 	if ev.IsDynamic {
@@ -376,11 +385,11 @@ func generateValueExpression(builder *strings.Builder, zoneID string, ev EnvVar)
 	}
 
 	if ev.IsDynamic && ev.Cache {
-		cacheVar := fmt.Sprintf("__ENVSCP_CACHE_%s_%s", zoneID, ev.Name)
-		builder.WriteString(fmt.Sprintf("      if [[ -z \"${%s:-}\" ]]; then\n", cacheVar))
-		builder.WriteString(fmt.Sprintf("        %s=%s\n", cacheVar, expr))
+		cacheKey := fmt.Sprintf("%s_%d", zoneID, varIndex)
+		builder.WriteString(fmt.Sprintf("      if [[ -z \"${__ENVSCP_C[%s]:-}\" ]]; then\n", cacheKey))
+		builder.WriteString(fmt.Sprintf("        __ENVSCP_C[%s]=%s\n", cacheKey, expr))
 		builder.WriteString("      fi\n")
-		return fmt.Sprintf("\"${%s}\"", cacheVar)
+		return fmt.Sprintf("\"${__ENVSCP_C[%s]}\"", cacheKey)
 	}
 	return expr
 }
@@ -415,14 +424,20 @@ func generateHookFunction(builder *strings.Builder, zones []Zone, allVars []stri
 	builder.WriteString("  local target_zone=\"NONE\"\n")
 	builder.WriteString("  case \"$PWD\" in\n")
 	for _, z := range zones {
-		builder.WriteString(fmt.Sprintf("    \"%s\" | \"%s/\"* ) target_zone=\"%s\" ;;\n", z.Path, z.Path, z.ID))
+		if z.Path == "/" {
+			// Leave the asterisk unquoted so Bash evaluates it correctly as a wildcard.
+			builder.WriteString(fmt.Sprintf("    \"/\" | \"/\"* ) target_zone=\"%s\" ;;\n", z.ID))
+		} else {
+			builder.WriteString(fmt.Sprintf("    \"%s\" | \"%s/\"* ) target_zone=\"%s\" ;;\n", z.Path, z.Path, z.ID))
+		}
 	}
 	builder.WriteString("  esac\n\n")
 
-	// Prepares the snippet that records the final state of all managed variables.
+	// Prepares the snippet that records the final state of all managed variables compactly.
 	var lastVarTracker strings.Builder
-	for _, v := range allVars {
-		lastVarTracker.WriteString(fmt.Sprintf("  __ENVSCP_LAST_%s=\"${%s:-}\"\n", v, v))
+	lastVarTracker.WriteString("      __ENVSCP_L=()\n")
+	for i, v := range allVars {
+		lastVarTracker.WriteString(fmt.Sprintf("      __ENVSCP_L[%d]=\"${%s:-}\"\n", i, v))
 	}
 
 	// Evaluates the current zone versus the known state, calling out to save/restore/apply logic.
@@ -436,6 +451,8 @@ func generateHookFunction(builder *strings.Builder, zones []Zone, allVars []stri
       fi
       __envscope_apply_stack "$target_zone"
 %s
+    else
+      unset __ENVSCP_L __ENVSCP_O __ENVSCP_H
     fi
     __ENVSCP_ZONE="$target_zone"
   fi

@@ -103,6 +103,7 @@ source <(bin/envscope -c test/test.conf hook bash)
 export PWD="$HOME/other"
 __envscope_hook
 assert_empty "LOCALVAR outside" "${LOCALVAR:-}"
+assert_eq "ROOT_VAR active everywhere" "${ROOT_VAR:-}" "root-zone"
 
 # 3. Enter zone_0
 export PWD="$HOME/test"
@@ -165,7 +166,7 @@ assert_empty "TILDE_VAR restored" "${TILDE_VAR:-}"
 assert_empty "TILDE_VAR_EXACT restored" "${TILDE_VAR_EXACT:-}"
 assert_empty "TILDE_VAR_MID restored" "${TILDE_VAR_MID:-}"
 assert_empty "TILDE_PATH_NOT_PATH restored" "${TILDE_PATH_NOT_PATH:-}"
-assert_empty "ROOT_VAR restored" "${ROOT_VAR:-}"
+assert_eq "ROOT_VAR still active" "${ROOT_VAR:-}" "root-zone"
 assert_eq "PATH restored" "${PATH:-}" "$ORIGINAL_PATH"
 
 # 7. Re-enter zone_0 to verify caching behavior
@@ -200,22 +201,21 @@ export PWD=/
 __envscope_hook
 assert_eq "ROOT_VAR set in /" "${ROOT_VAR:-}" "root-zone"
 
-# Leave absolute zone, ensure restored
-export PWD="$HOME/other"
+# Go to a subdirectory of /
+export PWD=/etc
 __envscope_hook
-assert_empty "ROOT_VAR restored from /" "${ROOT_VAR:-}"
+assert_eq "ROOT_VAR remains set in /etc" "${ROOT_VAR:-}" "root-zone"
 
 # Re-enter a relative zone to make sure everything still works
 export PWD="$HOME/test"
 __envscope_hook
 assert_eq "LOCALVAR in zone_0 after /" "${LOCALVAR:-}" "test"
-assert_empty "ROOT_VAR is not set in zone_0" "${ROOT_VAR:-}"
+assert_eq "ROOT_VAR is set in zone_0" "${ROOT_VAR:-}" "root-zone"
 
-echo "---------------------------------"
 if [[ $FAILURES -gt 0 ]]; then
-  echo "$FAILURES test(s) failed."
+  echo "[X] $FAILURES test(s) failed."
   exit 1
 else
-  echo "All integration tests passed."
+  echo "[+] All integration tests passed."
   exit 0
 fi

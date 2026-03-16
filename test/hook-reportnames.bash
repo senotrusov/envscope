@@ -24,120 +24,84 @@ __envscope_restore_outer() {
     if [[ ${__ENVSCP_H[0]:-0} -eq 1 ]]; then
       export TESTROOT="${__ENVSCP_O[0]:-}"
     else
-      if [[ -n "${TESTROOT+x}" ]]; then
-        unset TESTROOT
-        echo "envscope: removed TESTROOT" >&2
-      fi
+      unset TESTROOT
     fi
   fi
   if [[ "${LOCALVAR:-}" == "${__ENVSCP_L[1]:-}" ]]; then
     if [[ ${__ENVSCP_H[1]:-0} -eq 1 ]]; then
       export LOCALVAR="${__ENVSCP_O[1]:-}"
     else
-      if [[ -n "${LOCALVAR+x}" ]]; then
-        unset LOCALVAR
-        echo "envscope: removed LOCALVAR" >&2
-      fi
+      unset LOCALVAR
     fi
   fi
   if [[ "${DATE_VAR:-}" == "${__ENVSCP_L[2]:-}" ]]; then
     if [[ ${__ENVSCP_H[2]:-0} -eq 1 ]]; then
       export DATE_VAR="${__ENVSCP_O[2]:-}"
     else
-      if [[ -n "${DATE_VAR+x}" ]]; then
-        unset DATE_VAR
-        echo "envscope: removed DATE_VAR" >&2
-      fi
+      unset DATE_VAR
     fi
   fi
   if [[ "${DATE_VAR_CACHED:-}" == "${__ENVSCP_L[3]:-}" ]]; then
     if [[ ${__ENVSCP_H[3]:-0} -eq 1 ]]; then
       export DATE_VAR_CACHED="${__ENVSCP_O[3]:-}"
     else
-      if [[ -n "${DATE_VAR_CACHED+x}" ]]; then
-        unset DATE_VAR_CACHED
-        echo "envscope: removed DATE_VAR_CACHED" >&2
-      fi
+      unset DATE_VAR_CACHED
     fi
   fi
   if [[ "${QUOTED_VAR:-}" == "${__ENVSCP_L[4]:-}" ]]; then
     if [[ ${__ENVSCP_H[4]:-0} -eq 1 ]]; then
       export QUOTED_VAR="${__ENVSCP_O[4]:-}"
     else
-      if [[ -n "${QUOTED_VAR+x}" ]]; then
-        unset QUOTED_VAR
-        echo "envscope: removed QUOTED_VAR" >&2
-      fi
+      unset QUOTED_VAR
     fi
   fi
   if [[ "${SPACED_VAR:-}" == "${__ENVSCP_L[5]:-}" ]]; then
     if [[ ${__ENVSCP_H[5]:-0} -eq 1 ]]; then
       export SPACED_VAR="${__ENVSCP_O[5]:-}"
     else
-      if [[ -n "${SPACED_VAR+x}" ]]; then
-        unset SPACED_VAR
-        echo "envscope: removed SPACED_VAR" >&2
-      fi
+      unset SPACED_VAR
     fi
   fi
   if [[ "${TILDE_VAR:-}" == "${__ENVSCP_L[6]:-}" ]]; then
     if [[ ${__ENVSCP_H[6]:-0} -eq 1 ]]; then
       export TILDE_VAR="${__ENVSCP_O[6]:-}"
     else
-      if [[ -n "${TILDE_VAR+x}" ]]; then
-        unset TILDE_VAR
-        echo "envscope: removed TILDE_VAR" >&2
-      fi
+      unset TILDE_VAR
     fi
   fi
   if [[ "${TILDE_VAR_EXACT:-}" == "${__ENVSCP_L[7]:-}" ]]; then
     if [[ ${__ENVSCP_H[7]:-0} -eq 1 ]]; then
       export TILDE_VAR_EXACT="${__ENVSCP_O[7]:-}"
     else
-      if [[ -n "${TILDE_VAR_EXACT+x}" ]]; then
-        unset TILDE_VAR_EXACT
-        echo "envscope: removed TILDE_VAR_EXACT" >&2
-      fi
+      unset TILDE_VAR_EXACT
     fi
   fi
   if [[ "${TILDE_VAR_MID:-}" == "${__ENVSCP_L[8]:-}" ]]; then
     if [[ ${__ENVSCP_H[8]:-0} -eq 1 ]]; then
       export TILDE_VAR_MID="${__ENVSCP_O[8]:-}"
     else
-      if [[ -n "${TILDE_VAR_MID+x}" ]]; then
-        unset TILDE_VAR_MID
-        echo "envscope: removed TILDE_VAR_MID" >&2
-      fi
+      unset TILDE_VAR_MID
     fi
   fi
   if [[ "${TILDE_PATH_NOT_PATH:-}" == "${__ENVSCP_L[9]:-}" ]]; then
     if [[ ${__ENVSCP_H[9]:-0} -eq 1 ]]; then
       export TILDE_PATH_NOT_PATH="${__ENVSCP_O[9]:-}"
     else
-      if [[ -n "${TILDE_PATH_NOT_PATH+x}" ]]; then
-        unset TILDE_PATH_NOT_PATH
-        echo "envscope: removed TILDE_PATH_NOT_PATH" >&2
-      fi
+      unset TILDE_PATH_NOT_PATH
     fi
   fi
   if [[ "${PATH:-}" == "${__ENVSCP_L[10]:-}" ]]; then
     if [[ ${__ENVSCP_H[10]:-0} -eq 1 ]]; then
       export PATH="${__ENVSCP_O[10]:-}"
     else
-      if [[ -n "${PATH+x}" ]]; then
-        unset PATH
-        echo "envscope: removed PATH" >&2
-      fi
+      unset PATH
     fi
   fi
   if [[ "${ROOT_VAR:-}" == "${__ENVSCP_L[11]:-}" ]]; then
     if [[ ${__ENVSCP_H[11]:-0} -eq 1 ]]; then
       export ROOT_VAR="${__ENVSCP_O[11]:-}"
     else
-      if [[ -n "${ROOT_VAR+x}" ]]; then
-        unset ROOT_VAR
-        echo "envscope: removed ROOT_VAR" >&2
-      fi
+      unset ROOT_VAR
     fi
   fi
 }
@@ -154,48 +118,32 @@ __envscope_apply_one_zone() {
   case "$zone" in
     zone_0)
       export ROOT_VAR='root-zone'
-      echo "envscope: added ROOT_VAR" >&2
       ;;
     zone_1)
       export TESTROOT='testroot-value'
-      echo "envscope: added TESTROOT" >&2
       export LOCALVAR='test'
-      echo "envscope: added LOCALVAR" >&2
       export DATE_VAR=$(eval 'echo $RANDOM')
-      echo "envscope: added DATE_VAR" >&2
       if [[ -z "${__ENVSCP_C[zone_1_3]:-}" ]]; then
         __ENVSCP_C[zone_1_3]=$(eval 'echo $RANDOM')
       fi
       export DATE_VAR_CACHED="${__ENVSCP_C[zone_1_3]}"
-      echo "envscope: added DATE_VAR_CACHED" >&2
       export QUOTED_VAR='val'\''withquote'
-      echo "envscope: added QUOTED_VAR" >&2
       export SPACED_VAR='val  spaced'
-      echo "envscope: added SPACED_VAR" >&2
       export TILDE_VAR='/home/user/foo'
-      echo "envscope: added TILDE_VAR" >&2
       export TILDE_VAR_EXACT='/home/foo'
-      echo "envscope: added TILDE_VAR_EXACT" >&2
       export TILDE_VAR_MID='a~/foo'
-      echo "envscope: added TILDE_VAR_MID" >&2
       export TILDE_PATH_NOT_PATH=':/bin:~/foo'
-      echo "envscope: added TILDE_PATH_NOT_PATH" >&2
       ;;
     zone_2)
       export PATH='/home/user/prefix-that-does-not-exist':"${PATH:-}"
-      echo "envscope: added PATH" >&2
       export TESTROOT='now-with-prefix-'"${TESTROOT:-}"
-      echo "envscope: added TESTROOT" >&2
       export LOCALVAR='test-foo'
-      echo "envscope: added LOCALVAR" >&2
       ;;
     zone_3)
       export PATH='/home/user/bin:/usr/bin:/home/user/local/bin:/home/foo'
-      echo "envscope: added PATH" >&2
       ;;
     zone_4)
       export LOCALVAR='test-foo-bar'
-      echo "envscope: added LOCALVAR" >&2
       ;;
   esac
 }
