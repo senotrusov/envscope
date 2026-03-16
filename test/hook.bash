@@ -68,6 +68,12 @@ __envscope_save_outer() {
   else
     __ENVSCP_OUTER_HAD_PATH=0
   fi
+  if [[ -n "${ROOT_VAR+x}" ]]; then
+    __ENVSCP_OUTER_HAD_ROOT_VAR=1
+    __ENVSCP_OUTER_ROOT_VAR="$ROOT_VAR"
+  else
+    __ENVSCP_OUTER_HAD_ROOT_VAR=0
+  fi
 }
 
 __envscope_restore_outer() {
@@ -159,28 +165,40 @@ __envscope_restore_outer() {
       echo "envscope: removed PATH" >&2
     fi
   fi
+  if [[ "${ROOT_VAR:-}" == "${__ENVSCP_LAST_ROOT_VAR:-}" ]]; then
+    if [[ ${__ENVSCP_OUTER_HAD_ROOT_VAR:-0} -eq 1 ]]; then
+      export ROOT_VAR="${__ENVSCP_OUTER_ROOT_VAR:-}"
+    else
+      unset ROOT_VAR
+      echo "envscope: removed ROOT_VAR" >&2
+    fi
+  fi
 }
 
 declare -A __ENVSCP_PARENT=(
-  [zone_1]="zone_0"
-  [zone_2]="zone_0"
+  [zone_2]="zone_1"
   [zone_3]="zone_1"
+  [zone_4]="zone_2"
 )
 
 __envscope_apply_one_zone() {
   local zone="$1"
   case "$zone" in
     zone_0)
+      export ROOT_VAR='root-zone'
+      echo "envscope: added ROOT_VAR" >&2
+      ;;
+    zone_1)
       export TESTROOT='testroot-value'
       echo "envscope: added TESTROOT" >&2
       export LOCALVAR='test'
       echo "envscope: added LOCALVAR" >&2
       export DATE_VAR=$(eval 'echo $RANDOM')
       echo "envscope: added DATE_VAR" >&2
-      if [[ -z "${__ENVSCP_CACHE_zone_0_DATE_VAR_CACHED:-}" ]]; then
-        __ENVSCP_CACHE_zone_0_DATE_VAR_CACHED=$(eval 'echo $RANDOM')
+      if [[ -z "${__ENVSCP_CACHE_zone_1_DATE_VAR_CACHED:-}" ]]; then
+        __ENVSCP_CACHE_zone_1_DATE_VAR_CACHED=$(eval 'echo $RANDOM')
       fi
-      export DATE_VAR_CACHED="${__ENVSCP_CACHE_zone_0_DATE_VAR_CACHED}"
+      export DATE_VAR_CACHED="${__ENVSCP_CACHE_zone_1_DATE_VAR_CACHED}"
       echo "envscope: added DATE_VAR_CACHED" >&2
       export QUOTED_VAR='val'\''withquote'
       echo "envscope: added QUOTED_VAR" >&2
@@ -195,7 +213,7 @@ __envscope_apply_one_zone() {
       export TILDE_PATH_NOT_PATH=':/bin:~/foo'
       echo "envscope: added TILDE_PATH_NOT_PATH" >&2
       ;;
-    zone_1)
+    zone_2)
       export PATH='/home/user/prefix-that-does-not-exist':"${PATH:-}"
       echo "envscope: added PATH" >&2
       export TESTROOT='now-with-prefix-'"${TESTROOT:-}"
@@ -203,11 +221,11 @@ __envscope_apply_one_zone() {
       export LOCALVAR='test-foo'
       echo "envscope: added LOCALVAR" >&2
       ;;
-    zone_2)
+    zone_3)
       export PATH='/home/user/bin:/usr/bin:/home/user/local/bin:/home/foo'
       echo "envscope: added PATH" >&2
       ;;
-    zone_3)
+    zone_4)
       export LOCALVAR='test-foo-bar'
       echo "envscope: added LOCALVAR" >&2
       ;;
@@ -229,10 +247,11 @@ __envscope_apply_stack() {
 __envscope_hook() {
   local target_zone="NONE"
   case "$PWD" in
-    "/home/user/test/foo/bar" | "/home/user/test/foo/bar/"* ) target_zone="zone_3" ;;
-    "/home/user/test/tilde" | "/home/user/test/tilde/"* ) target_zone="zone_2" ;;
-    "/home/user/test/foo" | "/home/user/test/foo/"* ) target_zone="zone_1" ;;
-    "/home/user/test" | "/home/user/test/"* ) target_zone="zone_0" ;;
+    "/home/user/test/foo/bar" | "/home/user/test/foo/bar/"* ) target_zone="zone_4" ;;
+    "/home/user/test/tilde" | "/home/user/test/tilde/"* ) target_zone="zone_3" ;;
+    "/home/user/test/foo" | "/home/user/test/foo/"* ) target_zone="zone_2" ;;
+    "/home/user/test" | "/home/user/test/"* ) target_zone="zone_1" ;;
+    "/" | "//"* ) target_zone="zone_0" ;;
   esac
 
   if [[ "$target_zone" != "${__ENVSCP_ZONE:-NONE}" ]]; then
@@ -255,6 +274,7 @@ __envscope_hook() {
   __ENVSCP_LAST_TILDE_VAR_MID="${TILDE_VAR_MID:-}"
   __ENVSCP_LAST_TILDE_PATH_NOT_PATH="${TILDE_PATH_NOT_PATH:-}"
   __ENVSCP_LAST_PATH="${PATH:-}"
+  __ENVSCP_LAST_ROOT_VAR="${ROOT_VAR:-}"
 
     fi
     __ENVSCP_ZONE="$target_zone"

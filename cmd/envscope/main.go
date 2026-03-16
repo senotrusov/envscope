@@ -49,8 +49,6 @@ func main() {
 	configPath := *configFlag
 	if configPath == "" {
 		configPath = filepath.Join(homeDir, ".config", "envscope", "main.conf")
-	} else {
-		configPath = expandPath(configPath, homeDir)
 	}
 
 	zones, allVars, err := parseConfig(configPath, homeDir)
@@ -60,6 +58,16 @@ func main() {
 	}
 
 	generateBash(zones, allVars, *reportFlag)
+}
+
+// resolveZonePath resolves a path for a zone definition from the config file.
+// Paths starting with "/" are treated as absolute. All other paths are
+// considered relative to the user's home directory.
+func resolveZonePath(path, homeDir string) string {
+	if strings.HasPrefix(path, "/") {
+		return path
+	}
+	return filepath.Join(homeDir, path)
 }
 
 // parseConfig reads the envscope configuration, constructs Zone definitions,
@@ -99,7 +107,7 @@ func parseConfig(configPath, homeDir string) ([]Zone, []string, error) {
 			if currentPath != "" && len(currentVars) > 0 {
 				zones = append(zones, Zone{Path: currentPath, Vars: currentVars})
 			}
-			currentPath = expandPath(trimmed, homeDir)
+			currentPath = resolveZonePath(trimmed, homeDir)
 			currentVars = []EnvVar{}
 		}
 	}
@@ -225,14 +233,6 @@ func isAlphaOrUnderscore(r rune) bool {
 
 func isAlphaNumOrUnderscore(r rune) bool {
 	return isAlphaOrUnderscore(r) || (r >= '0' && r <= '9')
-}
-
-// expandPath translates the tilde prefix into an absolute user home directory path.
-func expandPath(path, homeDir string) string {
-	if strings.HasPrefix(path, "~") {
-		return filepath.Join(homeDir, path[1:])
-	}
-	return path
 }
 
 // expandTilde performs shell-like tilde expansion for a variable value.

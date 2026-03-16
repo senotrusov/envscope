@@ -51,7 +51,7 @@ Unlike many environment managers that search for `.env` files in every directory
 
 The configuration file is located at `~/.config/envscope/main.conf`.
 
-- **Paths:** Start at the beginning of the line. `~` is automatically expanded to your home directory.
+- **Paths:** Start at the beginning of the line. Paths starting with `/` are absolute. All other paths are relative to your home directory.
 - **Variables:** Must be indented with at least one space or tab. Variables are validated to ensure they conform to POSIX standard naming conventions (`^[a-zA-Z_][a-zA-Z0-9_]*$`).
 - **Prepending:** Use `+VAR=value` to prepend to an existing variable. If the variable is `PATH`, it automatically handles the `:` separator.
 - **Values and Quoting:**
@@ -64,21 +64,21 @@ The configuration file is located at `~/.config/envscope/main.conf`.
 ### Example `main.conf`
 
 ```text
-~/projects/work
+projects/work
   PGDATABASE=work_db
   API_KEY=$(passage show my/work-api-key) # cache
 
-~/projects/work/microservice-a
+projects/work/microservice-a
   PGDATABASE=service_a_db
   +PATH=~/projects/work/microservice-a/bin
 
-~/sandbox
+sandbox
   TEMP_ENV=true
 ```
 
 In the example above, when you `cd` into `~/projects/work/microservice-a`:
 - `PGDATABASE` will be `service_a_db` (overriding the parent).
-- `API_KEY` will be inherited from `~/projects/work`. Because of the `# cache` comment, the `passage` command will only be run once per shell session.
+- `API_KEY` will be inherited from `projects/work`. Because of the `# cache` comment, the `passage` command will only be run once per shell session.
 - `PATH` will be prepended with the new `bin` directory.
 
 ## How it works
