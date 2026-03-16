@@ -3,82 +3,82 @@ __ENVSCP_ZONE=${__ENVSCP_ZONE:-"NONE"}
 
 __envscope_save_outer() {
   if [[ -n "${TESTROOT+x}" ]]; then
-    __ENVSCP_OUTER_HAD_TESTROOT=1
+    __ENVSCP_OUTERHAD_TESTROOT=1
     __ENVSCP_OUTER_TESTROOT="$TESTROOT"
   else
-    __ENVSCP_OUTER_HAD_TESTROOT=0
+    __ENVSCP_OUTERHAD_TESTROOT=0
   fi
   if [[ -n "${LOCALVAR+x}" ]]; then
-    __ENVSCP_OUTER_HAD_LOCALVAR=1
+    __ENVSCP_OUTERHAD_LOCALVAR=1
     __ENVSCP_OUTER_LOCALVAR="$LOCALVAR"
   else
-    __ENVSCP_OUTER_HAD_LOCALVAR=0
+    __ENVSCP_OUTERHAD_LOCALVAR=0
   fi
   if [[ -n "${DATE_VAR+x}" ]]; then
-    __ENVSCP_OUTER_HAD_DATE_VAR=1
+    __ENVSCP_OUTERHAD_DATE_VAR=1
     __ENVSCP_OUTER_DATE_VAR="$DATE_VAR"
   else
-    __ENVSCP_OUTER_HAD_DATE_VAR=0
+    __ENVSCP_OUTERHAD_DATE_VAR=0
   fi
   if [[ -n "${DATE_VAR_CACHED+x}" ]]; then
-    __ENVSCP_OUTER_HAD_DATE_VAR_CACHED=1
+    __ENVSCP_OUTERHAD_DATE_VAR_CACHED=1
     __ENVSCP_OUTER_DATE_VAR_CACHED="$DATE_VAR_CACHED"
   else
-    __ENVSCP_OUTER_HAD_DATE_VAR_CACHED=0
+    __ENVSCP_OUTERHAD_DATE_VAR_CACHED=0
   fi
   if [[ -n "${QUOTED_VAR+x}" ]]; then
-    __ENVSCP_OUTER_HAD_QUOTED_VAR=1
+    __ENVSCP_OUTERHAD_QUOTED_VAR=1
     __ENVSCP_OUTER_QUOTED_VAR="$QUOTED_VAR"
   else
-    __ENVSCP_OUTER_HAD_QUOTED_VAR=0
+    __ENVSCP_OUTERHAD_QUOTED_VAR=0
   fi
   if [[ -n "${SPACED_VAR+x}" ]]; then
-    __ENVSCP_OUTER_HAD_SPACED_VAR=1
+    __ENVSCP_OUTERHAD_SPACED_VAR=1
     __ENVSCP_OUTER_SPACED_VAR="$SPACED_VAR"
   else
-    __ENVSCP_OUTER_HAD_SPACED_VAR=0
+    __ENVSCP_OUTERHAD_SPACED_VAR=0
   fi
   if [[ -n "${TILDE_VAR+x}" ]]; then
-    __ENVSCP_OUTER_HAD_TILDE_VAR=1
+    __ENVSCP_OUTERHAD_TILDE_VAR=1
     __ENVSCP_OUTER_TILDE_VAR="$TILDE_VAR"
   else
-    __ENVSCP_OUTER_HAD_TILDE_VAR=0
+    __ENVSCP_OUTERHAD_TILDE_VAR=0
   fi
   if [[ -n "${TILDE_VAR_EXACT+x}" ]]; then
-    __ENVSCP_OUTER_HAD_TILDE_VAR_EXACT=1
+    __ENVSCP_OUTERHAD_TILDE_VAR_EXACT=1
     __ENVSCP_OUTER_TILDE_VAR_EXACT="$TILDE_VAR_EXACT"
   else
-    __ENVSCP_OUTER_HAD_TILDE_VAR_EXACT=0
+    __ENVSCP_OUTERHAD_TILDE_VAR_EXACT=0
   fi
   if [[ -n "${TILDE_VAR_MID+x}" ]]; then
-    __ENVSCP_OUTER_HAD_TILDE_VAR_MID=1
+    __ENVSCP_OUTERHAD_TILDE_VAR_MID=1
     __ENVSCP_OUTER_TILDE_VAR_MID="$TILDE_VAR_MID"
   else
-    __ENVSCP_OUTER_HAD_TILDE_VAR_MID=0
+    __ENVSCP_OUTERHAD_TILDE_VAR_MID=0
   fi
   if [[ -n "${TILDE_PATH_NOT_PATH+x}" ]]; then
-    __ENVSCP_OUTER_HAD_TILDE_PATH_NOT_PATH=1
+    __ENVSCP_OUTERHAD_TILDE_PATH_NOT_PATH=1
     __ENVSCP_OUTER_TILDE_PATH_NOT_PATH="$TILDE_PATH_NOT_PATH"
   else
-    __ENVSCP_OUTER_HAD_TILDE_PATH_NOT_PATH=0
+    __ENVSCP_OUTERHAD_TILDE_PATH_NOT_PATH=0
   fi
   if [[ -n "${PATH+x}" ]]; then
-    __ENVSCP_OUTER_HAD_PATH=1
+    __ENVSCP_OUTERHAD_PATH=1
     __ENVSCP_OUTER_PATH="$PATH"
   else
-    __ENVSCP_OUTER_HAD_PATH=0
+    __ENVSCP_OUTERHAD_PATH=0
   fi
   if [[ -n "${ROOT_VAR+x}" ]]; then
-    __ENVSCP_OUTER_HAD_ROOT_VAR=1
+    __ENVSCP_OUTERHAD_ROOT_VAR=1
     __ENVSCP_OUTER_ROOT_VAR="$ROOT_VAR"
   else
-    __ENVSCP_OUTER_HAD_ROOT_VAR=0
+    __ENVSCP_OUTERHAD_ROOT_VAR=0
   fi
 }
 
 __envscope_restore_outer() {
   if [[ "${TESTROOT:-}" == "${__ENVSCP_LAST_TESTROOT:-}" ]]; then
-    if [[ ${__ENVSCP_OUTER_HAD_TESTROOT:-0} -eq 1 ]]; then
+    if [[ ${__ENVSCP_OUTERHAD_TESTROOT:-0} -eq 1 ]]; then
       export TESTROOT="${__ENVSCP_OUTER_TESTROOT:-}"
     else
       unset TESTROOT
@@ -86,7 +86,7 @@ __envscope_restore_outer() {
     fi
   fi
   if [[ "${LOCALVAR:-}" == "${__ENVSCP_LAST_LOCALVAR:-}" ]]; then
-    if [[ ${__ENVSCP_OUTER_HAD_LOCALVAR:-0} -eq 1 ]]; then
+    if [[ ${__ENVSCP_OUTERHAD_LOCALVAR:-0} -eq 1 ]]; then
       export LOCALVAR="${__ENVSCP_OUTER_LOCALVAR:-}"
     else
       unset LOCALVAR
@@ -94,7 +94,7 @@ __envscope_restore_outer() {
     fi
   fi
   if [[ "${DATE_VAR:-}" == "${__ENVSCP_LAST_DATE_VAR:-}" ]]; then
-    if [[ ${__ENVSCP_OUTER_HAD_DATE_VAR:-0} -eq 1 ]]; then
+    if [[ ${__ENVSCP_OUTERHAD_DATE_VAR:-0} -eq 1 ]]; then
       export DATE_VAR="${__ENVSCP_OUTER_DATE_VAR:-}"
     else
       unset DATE_VAR
@@ -102,7 +102,7 @@ __envscope_restore_outer() {
     fi
   fi
   if [[ "${DATE_VAR_CACHED:-}" == "${__ENVSCP_LAST_DATE_VAR_CACHED:-}" ]]; then
-    if [[ ${__ENVSCP_OUTER_HAD_DATE_VAR_CACHED:-0} -eq 1 ]]; then
+    if [[ ${__ENVSCP_OUTERHAD_DATE_VAR_CACHED:-0} -eq 1 ]]; then
       export DATE_VAR_CACHED="${__ENVSCP_OUTER_DATE_VAR_CACHED:-}"
     else
       unset DATE_VAR_CACHED
@@ -110,7 +110,7 @@ __envscope_restore_outer() {
     fi
   fi
   if [[ "${QUOTED_VAR:-}" == "${__ENVSCP_LAST_QUOTED_VAR:-}" ]]; then
-    if [[ ${__ENVSCP_OUTER_HAD_QUOTED_VAR:-0} -eq 1 ]]; then
+    if [[ ${__ENVSCP_OUTERHAD_QUOTED_VAR:-0} -eq 1 ]]; then
       export QUOTED_VAR="${__ENVSCP_OUTER_QUOTED_VAR:-}"
     else
       unset QUOTED_VAR
@@ -118,7 +118,7 @@ __envscope_restore_outer() {
     fi
   fi
   if [[ "${SPACED_VAR:-}" == "${__ENVSCP_LAST_SPACED_VAR:-}" ]]; then
-    if [[ ${__ENVSCP_OUTER_HAD_SPACED_VAR:-0} -eq 1 ]]; then
+    if [[ ${__ENVSCP_OUTERHAD_SPACED_VAR:-0} -eq 1 ]]; then
       export SPACED_VAR="${__ENVSCP_OUTER_SPACED_VAR:-}"
     else
       unset SPACED_VAR
@@ -126,7 +126,7 @@ __envscope_restore_outer() {
     fi
   fi
   if [[ "${TILDE_VAR:-}" == "${__ENVSCP_LAST_TILDE_VAR:-}" ]]; then
-    if [[ ${__ENVSCP_OUTER_HAD_TILDE_VAR:-0} -eq 1 ]]; then
+    if [[ ${__ENVSCP_OUTERHAD_TILDE_VAR:-0} -eq 1 ]]; then
       export TILDE_VAR="${__ENVSCP_OUTER_TILDE_VAR:-}"
     else
       unset TILDE_VAR
@@ -134,7 +134,7 @@ __envscope_restore_outer() {
     fi
   fi
   if [[ "${TILDE_VAR_EXACT:-}" == "${__ENVSCP_LAST_TILDE_VAR_EXACT:-}" ]]; then
-    if [[ ${__ENVSCP_OUTER_HAD_TILDE_VAR_EXACT:-0} -eq 1 ]]; then
+    if [[ ${__ENVSCP_OUTERHAD_TILDE_VAR_EXACT:-0} -eq 1 ]]; then
       export TILDE_VAR_EXACT="${__ENVSCP_OUTER_TILDE_VAR_EXACT:-}"
     else
       unset TILDE_VAR_EXACT
@@ -142,7 +142,7 @@ __envscope_restore_outer() {
     fi
   fi
   if [[ "${TILDE_VAR_MID:-}" == "${__ENVSCP_LAST_TILDE_VAR_MID:-}" ]]; then
-    if [[ ${__ENVSCP_OUTER_HAD_TILDE_VAR_MID:-0} -eq 1 ]]; then
+    if [[ ${__ENVSCP_OUTERHAD_TILDE_VAR_MID:-0} -eq 1 ]]; then
       export TILDE_VAR_MID="${__ENVSCP_OUTER_TILDE_VAR_MID:-}"
     else
       unset TILDE_VAR_MID
@@ -150,7 +150,7 @@ __envscope_restore_outer() {
     fi
   fi
   if [[ "${TILDE_PATH_NOT_PATH:-}" == "${__ENVSCP_LAST_TILDE_PATH_NOT_PATH:-}" ]]; then
-    if [[ ${__ENVSCP_OUTER_HAD_TILDE_PATH_NOT_PATH:-0} -eq 1 ]]; then
+    if [[ ${__ENVSCP_OUTERHAD_TILDE_PATH_NOT_PATH:-0} -eq 1 ]]; then
       export TILDE_PATH_NOT_PATH="${__ENVSCP_OUTER_TILDE_PATH_NOT_PATH:-}"
     else
       unset TILDE_PATH_NOT_PATH
@@ -158,7 +158,7 @@ __envscope_restore_outer() {
     fi
   fi
   if [[ "${PATH:-}" == "${__ENVSCP_LAST_PATH:-}" ]]; then
-    if [[ ${__ENVSCP_OUTER_HAD_PATH:-0} -eq 1 ]]; then
+    if [[ ${__ENVSCP_OUTERHAD_PATH:-0} -eq 1 ]]; then
       export PATH="${__ENVSCP_OUTER_PATH:-}"
     else
       unset PATH
@@ -166,7 +166,7 @@ __envscope_restore_outer() {
     fi
   fi
   if [[ "${ROOT_VAR:-}" == "${__ENVSCP_LAST_ROOT_VAR:-}" ]]; then
-    if [[ ${__ENVSCP_OUTER_HAD_ROOT_VAR:-0} -eq 1 ]]; then
+    if [[ ${__ENVSCP_OUTERHAD_ROOT_VAR:-0} -eq 1 ]]; then
       export ROOT_VAR="${__ENVSCP_OUTER_ROOT_VAR:-}"
     else
       unset ROOT_VAR

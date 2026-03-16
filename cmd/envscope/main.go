@@ -287,10 +287,10 @@ func generateSaveFunction(builder *strings.Builder, allVars []string) {
 	builder.WriteString("__envscope_save_outer() {\n")
 	for _, v := range allVars {
 		builder.WriteString(fmt.Sprintf(`  if [[ -n "${%s+x}" ]]; then
-    __ENVSCP_OUTER_HAD_%s=1
+    __ENVSCP_OUTERHAD_%s=1
     __ENVSCP_OUTER_%s="$%s"
   else
-    __ENVSCP_OUTER_HAD_%s=0
+    __ENVSCP_OUTERHAD_%s=0
   fi
 `, v, v, v, v, v))
 	}
@@ -303,7 +303,7 @@ func generateRestoreFunction(builder *strings.Builder, allVars []string, report 
 	builder.WriteString("__envscope_restore_outer() {\n")
 	for _, v := range allVars {
 		builder.WriteString(fmt.Sprintf(`  if [[ "${%s:-}" == "${__ENVSCP_LAST_%s:-}" ]]; then
-    if [[ ${__ENVSCP_OUTER_HAD_%s:-0} -eq 1 ]]; then
+    if [[ ${__ENVSCP_OUTERHAD_%s:-0} -eq 1 ]]; then
       export %s="${__ENVSCP_OUTER_%s:-}"
     else
       unset %s
