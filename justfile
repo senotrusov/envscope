@@ -72,3 +72,11 @@ test-shell: build
     bin/envscope -c test/test.conf -reportnames hook bash
     echo 'cd $HOME'
   ) -i || true
+
+# Run shell performance benchmarks
+shell-benchmarks:
+  bash benchmarks/var-indirection.bash
+  fish benchmarks/var-indirection.fish
+  zsh  benchmarks/var-indirection.zsh
+  bash benchmarks/var-access.bash
+  zsh  benchmarks/var-access.zsh
