@@ -44,7 +44,10 @@ Unlike many environment managers that search for `.env` files in every directory
    Add the following line to the end of your `~/.bashrc`:
 
    ```bash
-   eval "$(envscope hook bash)"
+   # Load envscope hook if available
+   if command -v envscope &>/dev/null; then
+     builtin source <(envscope hook bash)
+   fi
    ```
 
 ## Configuration Format
