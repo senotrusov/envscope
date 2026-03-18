@@ -16,7 +16,6 @@ import (
 	"path/filepath"
 	"regexp"
 	"sort"
-	"strconv"
 	"strings"
 )
 
@@ -34,9 +33,22 @@ type EnvVar struct {
 // Zone represents a single path and its variable definitions.
 type Zone struct {
 	Path     string
-	ID       string
-	ParentID string
+	ID       int
+	ParentID int
 	Vars     []EnvVar
+}
+
+// Name formats the zone ID into the target shell's static string reference.
+func (z Zone) Name() string {
+	return fmt.Sprintf("zone_%d", z.ID)
+}
+
+// ParentName formats the parent zone ID, defaulting to "NONE" if root level.
+func (z Zone) ParentName() string {
+	if z.ParentID == -1 {
+		return "NONE"
+	}
+	return fmt.Sprintf("zone_%d", z.ParentID)
 }
 
 // main coordinates the initialization, parsing, and shell output generation.
@@ -91,6 +103,18 @@ func parseConfig(configPath, homeDir string) ([]Zone, []string, error) {
 	}
 	defer file.Close()
 
+	zones, allVars, err := parseConfigLines(bufio.NewScanner(file), homeDir)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	assignZoneRelationships(zones)
+
+	return zones, allVars, nil
+}
+
+// parseConfigLines iterates line by line to map variables to their stated path groups.
+func parseConfigLines(scanner *bufio.Scanner, homeDir string) ([]Zone, []string, error) {
 	var zones []Zone
 	var currentPaths []string
 	var currentVars []EnvVar
@@ -98,7 +122,6 @@ func parseConfig(configPath, homeDir string) ([]Zone, []string, error) {
 	seenVars := make(map[string]bool)
 
 	lineNum := 0
-	scanner := bufio.NewScanner(file)
 	for scanner.Scan() {
 		lineNum++
 		line := scanner.Text()
@@ -107,19 +130,17 @@ func parseConfig(configPath, homeDir string) ([]Zone, []string, error) {
 			continue
 		}
 
-		if strings.HasPrefix(line, " ") || strings.HasPrefix(line, "\t") {
-			if len(currentPaths) > 0 {
-				if err := parseVarLine(trimmed, homeDir, &currentVars, &allVars, seenVars); err != nil {
-					return nil, nil, fmt.Errorf("line %d: %w", lineNum, err)
-				}
-			} else {
+		isIndented := strings.HasPrefix(line, " ") || strings.HasPrefix(line, "\t")
+		if isIndented {
+			if len(currentPaths) == 0 {
 				return nil, nil, fmt.Errorf("line %d: variable definition without a preceding zone path: %q", lineNum, trimmed)
+			}
+			if err := parseVarLine(trimmed, homeDir, &currentVars, &allVars, seenVars); err != nil {
+				return nil, nil, fmt.Errorf("line %d: %w", lineNum, err)
 			}
 		} else {
 			if len(currentPaths) > 0 && len(currentVars) > 0 {
-				for _, p := range currentPaths {
-					zones = append(zones, Zone{Path: p, Vars: currentVars})
-				}
+				zones = appendZones(zones, currentPaths, currentVars)
 				currentPaths = nil
 				currentVars = nil
 			}
@@ -132,22 +153,34 @@ func parseConfig(configPath, homeDir string) ([]Zone, []string, error) {
 	}
 
 	if len(currentPaths) > 0 && len(currentVars) > 0 {
-		for _, p := range currentPaths {
-			zones = append(zones, Zone{Path: p, Vars: currentVars})
-		}
+		zones = appendZones(zones, currentPaths, currentVars)
 	}
 
-	// Sort by path length to make parent-finding evaluate longest potentials first.
+	return zones, allVars, nil
+}
+
+// appendZones copies parsed block rules across every specified path declaration.
+func appendZones(zones []Zone, paths []string, vars []EnvVar) []Zone {
+	for _, p := range paths {
+		zones = append(zones, Zone{Path: p, Vars: vars})
+	}
+	return zones
+}
+
+// assignZoneRelationships structures the hierarchy between zones so variables
+// intelligently cascade and inherit.
+func assignZoneRelationships(zones []Zone) {
+	// Sort by path length ascending so shortest paths get lower logical IDs
+	// and are evaluated as potential parents before longer paths.
 	sort.Slice(zones, func(i, j int) bool {
 		return len(zones[i].Path) < len(zones[j].Path)
 	})
 
-	// Assign IDs.
 	for i := range zones {
-		zones[i].ID = fmt.Sprintf("zone_%d", i)
+		zones[i].ID = i
+		zones[i].ParentID = -1
 	}
 
-	// Establish parent-child relationships.
 	for i := range zones {
 		bestParentIdx := -1
 		for j := range zones {
@@ -164,8 +197,14 @@ func parseConfig(configPath, homeDir string) ([]Zone, []string, error) {
 			zones[i].ParentID = zones[bestParentIdx].ID
 		}
 	}
+}
 
-	return zones, allVars, nil
+// ensureTrailingSlash forces a slash onto a directory to enable strict segment matches.
+func ensureTrailingSlash(p string) string {
+	if !strings.HasSuffix(p, "/") {
+		return p + "/"
+	}
+	return p
 }
 
 // isSubPath checks if the child path is logically nested under the parent path.
@@ -174,14 +213,9 @@ func isSubPath(parent, child string) bool {
 	if parent == "/" {
 		return true
 	}
-	parentPath := parent
-	if !strings.HasSuffix(parentPath, "/") {
-		parentPath += "/"
-	}
-	childPath := child
-	if !strings.HasSuffix(childPath, "/") {
-		childPath += "/"
-	}
+
+	parentPath := ensureTrailingSlash(parent)
+	childPath := ensureTrailingSlash(child)
 
 	// A zone is not considered a parent of an identical zone.
 	if parentPath == childPath {
@@ -222,7 +256,9 @@ func parseVarLine(line, homeDir string, currentVars *[]EnvVar, allVars *[]string
 	val := valWithComment
 	cache := false
 
-	if commentIndex := strings.Index(valWithComment, "#"); commentIndex > -1 {
+	// Using LastIndex allows the user to have `#` embedded securely within the variable payload itself,
+	// checking strictly for the `# cache` syntax at the trailing end.
+	if commentIndex := strings.LastIndex(valWithComment, "#"); commentIndex > -1 {
 		commentPart := strings.TrimSpace(valWithComment[commentIndex+1:])
 		if commentPart == "cache" {
 			cache = true
@@ -320,9 +356,7 @@ func getSortedZonesByID(zones []Zone) []Zone {
 	sorted := make([]Zone, len(zones))
 	copy(sorted, zones)
 	sort.Slice(sorted, func(i, j int) bool {
-		id1, _ := strconv.Atoi(strings.TrimPrefix(sorted[i].ID, "zone_"))
-		id2, _ := strconv.Atoi(strings.TrimPrefix(sorted[j].ID, "zone_"))
-		return id1 < id2
+		return sorted[i].ID < sorted[j].ID
 	})
 	return sorted
 }

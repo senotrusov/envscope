@@ -87,8 +87,8 @@ func generateRestoreFunctionZsh(builder *strings.Builder, report bool) {
 func generateParentMapZsh(builder *strings.Builder, zones []Zone) {
 	builder.WriteString("typeset -g -A __ENVSCP_PARENT=(\n")
 	for _, z := range getSortedZonesByID(zones) {
-		if z.ParentID != "" {
-			builder.WriteString(fmt.Sprintf("  [%s]=\"%s\"\n", z.ID, z.ParentID))
+		if z.ParentID != -1 {
+			builder.WriteString(fmt.Sprintf("  [%s]=\"%s\"\n", z.Name(), z.ParentName()))
 		}
 	}
 	builder.WriteString(")\n\n")
@@ -99,7 +99,7 @@ func generateApplyOneZoneFunctionZsh(builder *strings.Builder, zones []Zone, rep
 	builder.WriteString("  local zone=\"$1\"\n")
 	builder.WriteString("  case \"$zone\" in\n")
 	for _, z := range getSortedZonesByID(zones) {
-		builder.WriteString(fmt.Sprintf("    %s)\n", z.ID))
+		builder.WriteString(fmt.Sprintf("    %s)\n", z.Name()))
 		for _, ev := range z.Vars {
 			escapedVal := escapeSingleQuotes(ev.Value)
 			var expr string
@@ -161,7 +161,7 @@ func generateHookFunctionZsh(builder *strings.Builder, zones []Zone) {
 	builder.WriteString("  case \"$current_pwd\" in\n")
 	for _, z := range zones {
 		pattern := formatZonePattern(z.Path)
-		builder.WriteString(fmt.Sprintf("    %s ) target_zone=\"%s\" ;;\n", pattern, z.ID))
+		builder.WriteString(fmt.Sprintf("    %s ) target_zone=\"%s\" ;;\n", pattern, z.Name()))
 	}
 	builder.WriteString("  esac\n\n")
 

@@ -47,8 +47,12 @@ context:
     justfile \
     README.md
 
-# Run the test suite
-test: build
+# Run Go unit tests
+unit-test:
+  go test -v ./...
+
+# Run the full test suite (Unit tests followed by Integration tests)
+test: unit-test build
   #!/usr/bin/env bash
   set -u # Error if variable is undefined
   

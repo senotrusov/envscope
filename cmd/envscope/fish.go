@@ -105,8 +105,8 @@ func generateParentMapFish(builder *strings.Builder, zones []Zone) {
 	builder.WriteString("function __envscope_get_parent\n")
 	builder.WriteString("  switch \"$argv[1]\"\n")
 	for _, z := range getSortedZonesByID(zones) {
-		if z.ParentID != "" {
-			builder.WriteString(fmt.Sprintf("    case %s\n      echo \"%s\"\n", z.ID, z.ParentID))
+		if z.ParentID != -1 {
+			builder.WriteString(fmt.Sprintf("    case %s\n      echo \"%s\"\n", z.Name(), z.ParentName()))
 		}
 	}
 	builder.WriteString("    case '*'\n      echo \"NONE\"\n")
@@ -119,7 +119,7 @@ func generateApplyOneZoneFunctionFish(builder *strings.Builder, zones []Zone, re
 	builder.WriteString("  set -l zone \"$argv[1]\"\n")
 	builder.WriteString("  switch \"$zone\"\n")
 	for _, z := range getSortedZonesByID(zones) {
-		builder.WriteString(fmt.Sprintf("    case %s\n", z.ID))
+		builder.WriteString(fmt.Sprintf("    case %s\n", z.Name()))
 		for _, ev := range z.Vars {
 			escapedVal := escapeSingleQuotesFish(ev.Value)
 			var expr string
@@ -187,7 +187,7 @@ func generateHookFunctionFish(builder *strings.Builder, zones []Zone) {
 	builder.WriteString("  switch \"$current_pwd\"\n")
 	for _, z := range zones {
 		pattern := formatZonePatternFish(z.Path)
-		builder.WriteString(fmt.Sprintf("    case %s\n      set target_zone \"%s\"\n", pattern, z.ID))
+		builder.WriteString(fmt.Sprintf("    case %s\n      set target_zone \"%s\"\n", pattern, z.Name()))
 	}
 	builder.WriteString("  end\n\n")
 
