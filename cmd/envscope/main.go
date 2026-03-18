@@ -309,8 +309,9 @@ func generateBash(zones []Zone, allVars []string, report bool) {
 	var builder strings.Builder
 
 	generateBashHeader(&builder)
-	generateSaveFunction(&builder, allVars)
-	generateRestoreFunction(&builder, allVars, report)
+	generateVarsArray(&builder, allVars)
+	generateSaveFunction(&builder)
+	generateRestoreFunction(&builder, report)
 	generateParentMap(&builder, zones)
 
 	// Pre-calculate deterministic integer indices for all dynamic cached variables.
@@ -326,7 +327,7 @@ func generateBash(zones []Zone, allVars []string, report bool) {
 
 	generateApplyOneZoneFunction(&builder, zones, report)
 	generateApplyStackFunction(&builder)
-	generateHookFunction(&builder, zones, allVars)
+	generateHookFunction(&builder, zones)
 
 	fmt.Print(builder.String())
 }
@@ -338,39 +339,63 @@ func generateBashHeader(builder *strings.Builder) {
 	builder.WriteString("declare -a __ENVSCP_C 2>/dev/null || true\n\n")
 }
 
+// generateVarsArray defines a global array of all managed variable names
+// to allow compact iteration via variable indirection.
+func generateVarsArray(builder *strings.Builder, allVars []string) {
+	builder.WriteString("declare -a __ENVSCP_VARS=(\n")
+	for _, v := range allVars {
+		builder.WriteString(fmt.Sprintf("  \"%s\"\n", v))
+	}
+	builder.WriteString(")\n\n")
+}
+
 // generateSaveFunction creates a Bash function to compactly store the original
 // environment state before any modifications are applied using indexed arrays.
-func generateSaveFunction(builder *strings.Builder, allVars []string) {
-	builder.WriteString("__envscope_save_outer() {\n")
-	builder.WriteString("  __ENVSCP_H=()\n")
-	builder.WriteString("  __ENVSCP_O=()\n")
-	for i, v := range allVars {
-		builder.WriteString(fmt.Sprintf("  [[ -n \"${%s+x}\" ]] && { __ENVSCP_H[%d]=1; __ENVSCP_O[%d]=\"$%s\"; } || __ENVSCP_H[%d]=0\n", v, i, i, v, i))
-	}
-	builder.WriteString("}\n\n")
+func generateSaveFunction(builder *strings.Builder) {
+	builder.WriteString(`__envscope_save_outer() {
+  __ENVSCP_H=()
+  __ENVSCP_O=()
+  for i in "${!__ENVSCP_VARS[@]}"; do
+    local v="${__ENVSCP_VARS[$i]}"
+    if [[ -n "${!v+x}" ]]; then
+      __ENVSCP_H[$i]=1
+      __ENVSCP_O[$i]="${!v}"
+    else
+      __ENVSCP_H[$i]=0
+    fi
+  done
+}
+
+`)
 }
 
 // generateRestoreFunction creates a Bash function that reverts variables to their
 // original "outer" state from indexed arrays, optionally reporting changes.
-func generateRestoreFunction(builder *strings.Builder, allVars []string, report bool) {
-	builder.WriteString("__envscope_restore_outer() {\n")
-	for i, v := range allVars {
-		builder.WriteString(fmt.Sprintf("  if [[ \"${%s:-}\" == \"${__ENVSCP_L[%d]:-}\" ]]; then\n", v, i))
-		builder.WriteString(fmt.Sprintf("    if [[ ${__ENVSCP_H[%d]:-0} -eq 1 ]]; then\n", i))
-		builder.WriteString(fmt.Sprintf("      export %s=\"${__ENVSCP_O[%d]:-}\"\n", v, i))
-		builder.WriteString("    else\n")
-		if report {
-			builder.WriteString(fmt.Sprintf("      if [[ -n \"${%s+x}\" ]]; then\n", v))
-			builder.WriteString(fmt.Sprintf("        unset %s\n", v))
-			builder.WriteString(fmt.Sprintf("        echo \"envscope: removed %s\" >&2\n", v))
-			builder.WriteString("      fi\n")
-		} else {
-			builder.WriteString(fmt.Sprintf("      unset %s\n", v))
-		}
-		builder.WriteString("    fi\n")
-		builder.WriteString("  fi\n")
+func generateRestoreFunction(builder *strings.Builder, report bool) {
+	builder.WriteString(`__envscope_restore_outer() {
+  for i in "${!__ENVSCP_VARS[@]}"; do
+    local v="${__ENVSCP_VARS[$i]}"
+    if [[ "${!v:-}" == "${__ENVSCP_L[$i]:-}" ]]; then
+      if [[ ${__ENVSCP_H[$i]:-0} -eq 1 ]]; then
+        export "$v"="${__ENVSCP_O[$i]:-}"
+      else
+`)
+	if report {
+		builder.WriteString(`        if [[ -n "${!v+x}" ]]; then
+          unset "$v"
+          echo "envscope: removed $v" >&2
+        fi
+`)
+	} else {
+		builder.WriteString(`        unset "$v"
+`)
 	}
-	builder.WriteString("}\n\n")
+	builder.WriteString(`      fi
+    fi
+  done
+}
+
+`)
 }
 
 // generateParentMap defines a Bash associative array to represent the zone hierarchy.
@@ -484,7 +509,7 @@ func formatZonePattern(path string) string {
 
 // generateHookFunction produces the runtime prompt trigger evaluation loop
 // implementing longest-match nested path sorting priority.
-func generateHookFunction(builder *strings.Builder, zones []Zone, allVars []string) {
+func generateHookFunction(builder *strings.Builder, zones []Zone) {
 	// Sort longest paths first to give deepest nested folders priority.
 	sort.Slice(zones, func(i, j int) bool {
 		return len(zones[i].Path) > len(zones[j].Path)
@@ -503,10 +528,11 @@ func generateHookFunction(builder *strings.Builder, zones []Zone, allVars []stri
 
 	// Prepares the snippet that records the final state of all managed variables compactly.
 	var lastVarTracker strings.Builder
-	lastVarTracker.WriteString("      __ENVSCP_L=()\n")
-	for i, v := range allVars {
-		lastVarTracker.WriteString(fmt.Sprintf("      __ENVSCP_L[%d]=\"${%s:-}\"\n", i, v))
-	}
+	lastVarTracker.WriteString(`      __ENVSCP_L=()
+      for i in "${!__ENVSCP_VARS[@]}"; do
+        local v="${__ENVSCP_VARS[$i]}"
+        __ENVSCP_L[$i]="${!v:-}"
+      done`)
 
 	// Evaluates the current zone versus the known state, calling out to save/restore/apply logic.
 	builder.WriteString(fmt.Sprintf(`  if [[ "$target_zone" != "${__ENVSCP_ZONE:-NONE}" ]]; then

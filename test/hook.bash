@@ -2,124 +2,48 @@
 __ENVSCP_ZONE=${__ENVSCP_ZONE:-"NONE"}
 declare -a __ENVSCP_C 2>/dev/null || true
 
+declare -a __ENVSCP_VARS=(
+  "TESTROOT"
+  "LOCALVAR"
+  "DATE_VAR"
+  "DATE_VAR_CACHED"
+  "QUOTED_VAR"
+  "SPACED_VAR"
+  "TILDE_VAR"
+  "TILDE_VAR_EXACT"
+  "TILDE_VAR_MID"
+  "TILDE_PATH_NOT_PATH"
+  "PATH"
+  "MULTI_VAR"
+  "WILDCARD_VAR"
+  "ROOT_VAR"
+)
+
 __envscope_save_outer() {
   __ENVSCP_H=()
   __ENVSCP_O=()
-  [[ -n "${TESTROOT+x}" ]] && { __ENVSCP_H[0]=1; __ENVSCP_O[0]="$TESTROOT"; } || __ENVSCP_H[0]=0
-  [[ -n "${LOCALVAR+x}" ]] && { __ENVSCP_H[1]=1; __ENVSCP_O[1]="$LOCALVAR"; } || __ENVSCP_H[1]=0
-  [[ -n "${DATE_VAR+x}" ]] && { __ENVSCP_H[2]=1; __ENVSCP_O[2]="$DATE_VAR"; } || __ENVSCP_H[2]=0
-  [[ -n "${DATE_VAR_CACHED+x}" ]] && { __ENVSCP_H[3]=1; __ENVSCP_O[3]="$DATE_VAR_CACHED"; } || __ENVSCP_H[3]=0
-  [[ -n "${QUOTED_VAR+x}" ]] && { __ENVSCP_H[4]=1; __ENVSCP_O[4]="$QUOTED_VAR"; } || __ENVSCP_H[4]=0
-  [[ -n "${SPACED_VAR+x}" ]] && { __ENVSCP_H[5]=1; __ENVSCP_O[5]="$SPACED_VAR"; } || __ENVSCP_H[5]=0
-  [[ -n "${TILDE_VAR+x}" ]] && { __ENVSCP_H[6]=1; __ENVSCP_O[6]="$TILDE_VAR"; } || __ENVSCP_H[6]=0
-  [[ -n "${TILDE_VAR_EXACT+x}" ]] && { __ENVSCP_H[7]=1; __ENVSCP_O[7]="$TILDE_VAR_EXACT"; } || __ENVSCP_H[7]=0
-  [[ -n "${TILDE_VAR_MID+x}" ]] && { __ENVSCP_H[8]=1; __ENVSCP_O[8]="$TILDE_VAR_MID"; } || __ENVSCP_H[8]=0
-  [[ -n "${TILDE_PATH_NOT_PATH+x}" ]] && { __ENVSCP_H[9]=1; __ENVSCP_O[9]="$TILDE_PATH_NOT_PATH"; } || __ENVSCP_H[9]=0
-  [[ -n "${PATH+x}" ]] && { __ENVSCP_H[10]=1; __ENVSCP_O[10]="$PATH"; } || __ENVSCP_H[10]=0
-  [[ -n "${MULTI_VAR+x}" ]] && { __ENVSCP_H[11]=1; __ENVSCP_O[11]="$MULTI_VAR"; } || __ENVSCP_H[11]=0
-  [[ -n "${WILDCARD_VAR+x}" ]] && { __ENVSCP_H[12]=1; __ENVSCP_O[12]="$WILDCARD_VAR"; } || __ENVSCP_H[12]=0
-  [[ -n "${ROOT_VAR+x}" ]] && { __ENVSCP_H[13]=1; __ENVSCP_O[13]="$ROOT_VAR"; } || __ENVSCP_H[13]=0
+  for i in "${!__ENVSCP_VARS[@]}"; do
+    local v="${__ENVSCP_VARS[$i]}"
+    if [[ -n "${!v+x}" ]]; then
+      __ENVSCP_H[$i]=1
+      __ENVSCP_O[$i]="${!v}"
+    else
+      __ENVSCP_H[$i]=0
+    fi
+  done
 }
 
 __envscope_restore_outer() {
-  if [[ "${TESTROOT:-}" == "${__ENVSCP_L[0]:-}" ]]; then
-    if [[ ${__ENVSCP_H[0]:-0} -eq 1 ]]; then
-      export TESTROOT="${__ENVSCP_O[0]:-}"
-    else
-      unset TESTROOT
+  for i in "${!__ENVSCP_VARS[@]}"; do
+    local v="${__ENVSCP_VARS[$i]}"
+    if [[ "${!v:-}" == "${__ENVSCP_L[$i]:-}" ]]; then
+      if [[ ${__ENVSCP_H[$i]:-0} -eq 1 ]]; then
+        export "$v"="${__ENVSCP_O[$i]:-}"
+      else
+        unset "$v"
+      fi
     fi
-  fi
-  if [[ "${LOCALVAR:-}" == "${__ENVSCP_L[1]:-}" ]]; then
-    if [[ ${__ENVSCP_H[1]:-0} -eq 1 ]]; then
-      export LOCALVAR="${__ENVSCP_O[1]:-}"
-    else
-      unset LOCALVAR
-    fi
-  fi
-  if [[ "${DATE_VAR:-}" == "${__ENVSCP_L[2]:-}" ]]; then
-    if [[ ${__ENVSCP_H[2]:-0} -eq 1 ]]; then
-      export DATE_VAR="${__ENVSCP_O[2]:-}"
-    else
-      unset DATE_VAR
-    fi
-  fi
-  if [[ "${DATE_VAR_CACHED:-}" == "${__ENVSCP_L[3]:-}" ]]; then
-    if [[ ${__ENVSCP_H[3]:-0} -eq 1 ]]; then
-      export DATE_VAR_CACHED="${__ENVSCP_O[3]:-}"
-    else
-      unset DATE_VAR_CACHED
-    fi
-  fi
-  if [[ "${QUOTED_VAR:-}" == "${__ENVSCP_L[4]:-}" ]]; then
-    if [[ ${__ENVSCP_H[4]:-0} -eq 1 ]]; then
-      export QUOTED_VAR="${__ENVSCP_O[4]:-}"
-    else
-      unset QUOTED_VAR
-    fi
-  fi
-  if [[ "${SPACED_VAR:-}" == "${__ENVSCP_L[5]:-}" ]]; then
-    if [[ ${__ENVSCP_H[5]:-0} -eq 1 ]]; then
-      export SPACED_VAR="${__ENVSCP_O[5]:-}"
-    else
-      unset SPACED_VAR
-    fi
-  fi
-  if [[ "${TILDE_VAR:-}" == "${__ENVSCP_L[6]:-}" ]]; then
-    if [[ ${__ENVSCP_H[6]:-0} -eq 1 ]]; then
-      export TILDE_VAR="${__ENVSCP_O[6]:-}"
-    else
-      unset TILDE_VAR
-    fi
-  fi
-  if [[ "${TILDE_VAR_EXACT:-}" == "${__ENVSCP_L[7]:-}" ]]; then
-    if [[ ${__ENVSCP_H[7]:-0} -eq 1 ]]; then
-      export TILDE_VAR_EXACT="${__ENVSCP_O[7]:-}"
-    else
-      unset TILDE_VAR_EXACT
-    fi
-  fi
-  if [[ "${TILDE_VAR_MID:-}" == "${__ENVSCP_L[8]:-}" ]]; then
-    if [[ ${__ENVSCP_H[8]:-0} -eq 1 ]]; then
-      export TILDE_VAR_MID="${__ENVSCP_O[8]:-}"
-    else
-      unset TILDE_VAR_MID
-    fi
-  fi
-  if [[ "${TILDE_PATH_NOT_PATH:-}" == "${__ENVSCP_L[9]:-}" ]]; then
-    if [[ ${__ENVSCP_H[9]:-0} -eq 1 ]]; then
-      export TILDE_PATH_NOT_PATH="${__ENVSCP_O[9]:-}"
-    else
-      unset TILDE_PATH_NOT_PATH
-    fi
-  fi
-  if [[ "${PATH:-}" == "${__ENVSCP_L[10]:-}" ]]; then
-    if [[ ${__ENVSCP_H[10]:-0} -eq 1 ]]; then
-      export PATH="${__ENVSCP_O[10]:-}"
-    else
-      unset PATH
-    fi
-  fi
-  if [[ "${MULTI_VAR:-}" == "${__ENVSCP_L[11]:-}" ]]; then
-    if [[ ${__ENVSCP_H[11]:-0} -eq 1 ]]; then
-      export MULTI_VAR="${__ENVSCP_O[11]:-}"
-    else
-      unset MULTI_VAR
-    fi
-  fi
-  if [[ "${WILDCARD_VAR:-}" == "${__ENVSCP_L[12]:-}" ]]; then
-    if [[ ${__ENVSCP_H[12]:-0} -eq 1 ]]; then
-      export WILDCARD_VAR="${__ENVSCP_O[12]:-}"
-    else
-      unset WILDCARD_VAR
-    fi
-  fi
-  if [[ "${ROOT_VAR:-}" == "${__ENVSCP_L[13]:-}" ]]; then
-    if [[ ${__ENVSCP_H[13]:-0} -eq 1 ]]; then
-      export ROOT_VAR="${__ENVSCP_O[13]:-}"
-    else
-      unset ROOT_VAR
-    fi
-  fi
+  done
 }
 
 declare -A __ENVSCP_PARENT=(
@@ -213,21 +137,10 @@ __envscope_hook() {
       fi
       __envscope_apply_stack "$target_zone"
       __ENVSCP_L=()
-      __ENVSCP_L[0]="${TESTROOT:-}"
-      __ENVSCP_L[1]="${LOCALVAR:-}"
-      __ENVSCP_L[2]="${DATE_VAR:-}"
-      __ENVSCP_L[3]="${DATE_VAR_CACHED:-}"
-      __ENVSCP_L[4]="${QUOTED_VAR:-}"
-      __ENVSCP_L[5]="${SPACED_VAR:-}"
-      __ENVSCP_L[6]="${TILDE_VAR:-}"
-      __ENVSCP_L[7]="${TILDE_VAR_EXACT:-}"
-      __ENVSCP_L[8]="${TILDE_VAR_MID:-}"
-      __ENVSCP_L[9]="${TILDE_PATH_NOT_PATH:-}"
-      __ENVSCP_L[10]="${PATH:-}"
-      __ENVSCP_L[11]="${MULTI_VAR:-}"
-      __ENVSCP_L[12]="${WILDCARD_VAR:-}"
-      __ENVSCP_L[13]="${ROOT_VAR:-}"
-
+      for i in "${!__ENVSCP_VARS[@]}"; do
+        local v="${__ENVSCP_VARS[$i]}"
+        __ENVSCP_L[$i]="${!v:-}"
+      done
     else
       unset __ENVSCP_L __ENVSCP_O __ENVSCP_H
     fi
