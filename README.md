@@ -77,6 +77,31 @@ The configuration file is located at `~/.config/envscope/main.conf`.
   - **Dynamic Values:** You can evaluate Bash commands by wrapping the *entire* value in `$()`, such as `$(command)`. These are safely evaluated at runtime.
   - **Caching:** By default, dynamic values are re-evaluated on each scope change. To cache the result for the current shell session, add a `# cache` comment at the end of the line.
 
+### Multiple Folders
+
+You can easily apply the same set of variables to multiple directory paths by listing them one after the other prior to the indented variables block:
+
+```text
+projects/backend-a
+projects/backend-b
+  DB_PORT=5432
+```
+
+### Wildcards in Paths
+
+Paths can include the `*` wildcard character, which matches any sequence of characters (including slashes and empty strings). All other characters are matched literally. Directory names containing newline characters are not supported.
+
+```text
+projects/*/src
+  ENV_TYPE=development
+```
+
+### Path Matching & `//` Caveat
+
+`envscope` enforces a strict underlying pattern matching logic by seamlessly normalizing `$PWD` with a trailing slash to accurately distinguish directory boundaries (e.g. differentiating `foo` from `foobar`). 
+
+In some specific OS/shell environments, navigating to `//` (two leading slashes) enters a special network namespace (like UNC paths on Windows environments) or functionally stays as `//` on Linux. If you mistakenly `cd` into an unusual layout like `//home/user`, `envscope` may not correctly match your configured zones against this irregular root structure. Correct your path natively by running `cd /home/user`.
+
 ### Example `main.conf`
 
 ```text

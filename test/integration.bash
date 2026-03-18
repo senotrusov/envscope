@@ -212,6 +212,34 @@ __envscope_hook
 assert_eq "LOCALVAR in zone_0 after /" "${LOCALVAR:-}" "test"
 assert_eq "ROOT_VAR is set in zone_0" "${ROOT_VAR:-}" "root-zone"
 
+# 11. Multiple folders
+export PWD="$HOME/test/multi-1"
+__envscope_hook
+assert_eq "MULTI_VAR in multi-1" "${MULTI_VAR:-}" "applied-to-both"
+
+export PWD="$HOME/test/multi-2"
+__envscope_hook
+assert_eq "MULTI_VAR in multi-2" "${MULTI_VAR:-}" "applied-to-both"
+
+# 12. Wildcard path
+export PWD="$HOME/test/wildcard/foo/bar"
+__envscope_hook
+assert_eq "WILDCARD_VAR in wildcard/foo/bar" "${WILDCARD_VAR:-}" "matched"
+
+export PWD="$HOME/test/wildcard/another/bar"
+__envscope_hook
+assert_eq "WILDCARD_VAR in wildcard/another/bar" "${WILDCARD_VAR:-}" "matched"
+
+export PWD="$HOME/test/wildcard/foo/bar/deep"
+__envscope_hook
+assert_eq "WILDCARD_VAR inherited in deep" "${WILDCARD_VAR:-}" "matched"
+
+# 13. Verify variables from multiple folders and wildcards correctly restore upon exit
+export PWD="$HOME/other"
+__envscope_hook
+assert_empty "MULTI_VAR restored" "${MULTI_VAR:-}"
+assert_empty "WILDCARD_VAR restored" "${WILDCARD_VAR:-}"
+
 if [[ $FAILURES -gt 0 ]]; then
   echo "[X] $FAILURES test(s) failed."
   exit 1

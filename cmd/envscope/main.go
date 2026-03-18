@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"regexp"
 	"sort"
 	"strings"
 )
@@ -81,7 +82,7 @@ func parseConfig(configPath, homeDir string) ([]Zone, []string, error) {
 	defer file.Close()
 
 	var zones []Zone
-	var currentPath string
+	var currentPaths []string
 	var currentVars []EnvVar
 	var allVars []string
 	seenVars := make(map[string]bool)
@@ -97,7 +98,7 @@ func parseConfig(configPath, homeDir string) ([]Zone, []string, error) {
 		}
 
 		if strings.HasPrefix(line, " ") || strings.HasPrefix(line, "\t") {
-			if currentPath != "" {
+			if len(currentPaths) > 0 {
 				if err := parseVarLine(trimmed, homeDir, &currentVars, &allVars, seenVars); err != nil {
 					return nil, nil, fmt.Errorf("line %d: %w", lineNum, err)
 				}
@@ -105,11 +106,14 @@ func parseConfig(configPath, homeDir string) ([]Zone, []string, error) {
 				return nil, nil, fmt.Errorf("line %d: variable definition without a preceding zone path: %q", lineNum, trimmed)
 			}
 		} else {
-			if currentPath != "" && len(currentVars) > 0 {
-				zones = append(zones, Zone{Path: currentPath, Vars: currentVars})
+			if len(currentPaths) > 0 && len(currentVars) > 0 {
+				for _, p := range currentPaths {
+					zones = append(zones, Zone{Path: p, Vars: currentVars})
+				}
+				currentPaths = nil
+				currentVars = nil
 			}
-			currentPath = resolveZonePath(trimmed, homeDir)
-			currentVars = []EnvVar{}
+			currentPaths = append(currentPaths, resolveZonePath(trimmed, homeDir))
 		}
 	}
 
@@ -117,22 +121,30 @@ func parseConfig(configPath, homeDir string) ([]Zone, []string, error) {
 		return nil, nil, err
 	}
 
-	if currentPath != "" && len(currentVars) > 0 {
-		zones = append(zones, Zone{Path: currentPath, Vars: currentVars})
+	if len(currentPaths) > 0 && len(currentVars) > 0 {
+		for _, p := range currentPaths {
+			zones = append(zones, Zone{Path: p, Vars: currentVars})
+		}
 	}
 
-	// Sort by path length to make parent-finding efficient and correct.
+	// Sort by path length to make parent-finding evaluate longest potentials first.
 	sort.Slice(zones, func(i, j int) bool {
 		return len(zones[i].Path) < len(zones[j].Path)
 	})
 
-	// Assign IDs and establish parent-child relationships.
+	// Assign IDs.
 	for i := range zones {
 		zones[i].ID = fmt.Sprintf("zone_%d", i)
+	}
+
+	// Establish parent-child relationships.
+	for i := range zones {
 		bestParentIdx := -1
-		// Find the longest path among preceding zones that is a prefix.
-		for j := 0; j < i; j++ {
-			if zones[j].Path == "/" || strings.HasPrefix(zones[i].Path, zones[j].Path+"/") {
+		for j := range zones {
+			if i == j {
+				continue
+			}
+			if isSubPath(zones[j].Path, zones[i].Path) {
 				if bestParentIdx == -1 || len(zones[j].Path) > len(zones[bestParentIdx].Path) {
 					bestParentIdx = j
 				}
@@ -144,6 +156,36 @@ func parseConfig(configPath, homeDir string) ([]Zone, []string, error) {
 	}
 
 	return zones, allVars, nil
+}
+
+// isSubPath checks if the child path is logically nested under the parent path.
+// It supports wildcard '*' characters in the parent path to allow for complex subsets.
+func isSubPath(parent, child string) bool {
+	if parent == "/" {
+		return true
+	}
+	parentPath := parent
+	if !strings.HasSuffix(parentPath, "/") {
+		parentPath += "/"
+	}
+	childPath := child
+	if !strings.HasSuffix(childPath, "/") {
+		childPath += "/"
+	}
+
+	// A zone is not considered a parent of an identical zone.
+	if parentPath == childPath {
+		return false
+	}
+
+	parts := strings.Split(parentPath, "*")
+	var rxParts []string
+	for _, p := range parts {
+		rxParts = append(rxParts, regexp.QuoteMeta(p))
+	}
+	rxStr := "^" + strings.Join(rxParts, ".*")
+	matched, _ := regexp.MatchString(rxStr, childPath)
+	return matched
 }
 
 // parseVarLine extracts a single variable's configurations, parsing names, plain text strings,
@@ -417,6 +459,29 @@ func generateApplyStackFunction(builder *strings.Builder) {
 `)
 }
 
+// formatZonePattern converts a zone path into a safely quoted Bash case pattern,
+// appending wildcards where necessary to match current and nested directories.
+func formatZonePattern(path string) string {
+	matchPath := path
+	if !strings.HasSuffix(matchPath, "/") {
+		matchPath += "/"
+	}
+
+	parts := strings.Split(matchPath, "*")
+	var res strings.Builder
+	for i, p := range parts {
+		if i > 0 {
+			res.WriteString("*")
+		}
+		if p != "" {
+			res.WriteString(escapeSingleQuotes(p))
+		}
+	}
+
+	res.WriteString("*")
+	return res.String()
+}
+
 // generateHookFunction produces the runtime prompt trigger evaluation loop
 // implementing longest-match nested path sorting priority.
 func generateHookFunction(builder *strings.Builder, zones []Zone, allVars []string) {
@@ -427,14 +492,12 @@ func generateHookFunction(builder *strings.Builder, zones []Zone, allVars []stri
 
 	builder.WriteString("__envscope_hook() {\n")
 	builder.WriteString("  local target_zone=\"NONE\"\n")
-	builder.WriteString("  case \"$PWD\" in\n")
+	builder.WriteString("  local current_pwd=\"${PWD:-}\"\n")
+	builder.WriteString("  current_pwd=\"${current_pwd%/}/\"\n")
+	builder.WriteString("  case \"$current_pwd\" in\n")
 	for _, z := range zones {
-		if z.Path == "/" {
-			// Leave the asterisk unquoted so Bash evaluates it correctly as a wildcard.
-			builder.WriteString(fmt.Sprintf("    \"/\" | \"/\"* ) target_zone=\"%s\" ;;\n", z.ID))
-		} else {
-			builder.WriteString(fmt.Sprintf("    \"%s\" | \"%s/\"* ) target_zone=\"%s\" ;;\n", z.Path, z.Path, z.ID))
-		}
+		pattern := formatZonePattern(z.Path)
+		builder.WriteString(fmt.Sprintf("    %s ) target_zone=\"%s\" ;;\n", pattern, z.ID))
 	}
 	builder.WriteString("  esac\n\n")
 

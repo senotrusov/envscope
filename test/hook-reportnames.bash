@@ -16,7 +16,9 @@ __envscope_save_outer() {
   [[ -n "${TILDE_VAR_MID+x}" ]] && { __ENVSCP_H[8]=1; __ENVSCP_O[8]="$TILDE_VAR_MID"; } || __ENVSCP_H[8]=0
   [[ -n "${TILDE_PATH_NOT_PATH+x}" ]] && { __ENVSCP_H[9]=1; __ENVSCP_O[9]="$TILDE_PATH_NOT_PATH"; } || __ENVSCP_H[9]=0
   [[ -n "${PATH+x}" ]] && { __ENVSCP_H[10]=1; __ENVSCP_O[10]="$PATH"; } || __ENVSCP_H[10]=0
-  [[ -n "${ROOT_VAR+x}" ]] && { __ENVSCP_H[11]=1; __ENVSCP_O[11]="$ROOT_VAR"; } || __ENVSCP_H[11]=0
+  [[ -n "${MULTI_VAR+x}" ]] && { __ENVSCP_H[11]=1; __ENVSCP_O[11]="$MULTI_VAR"; } || __ENVSCP_H[11]=0
+  [[ -n "${WILDCARD_VAR+x}" ]] && { __ENVSCP_H[12]=1; __ENVSCP_O[12]="$WILDCARD_VAR"; } || __ENVSCP_H[12]=0
+  [[ -n "${ROOT_VAR+x}" ]] && { __ENVSCP_H[13]=1; __ENVSCP_O[13]="$ROOT_VAR"; } || __ENVSCP_H[13]=0
 }
 
 __envscope_restore_outer() {
@@ -130,9 +132,29 @@ __envscope_restore_outer() {
       fi
     fi
   fi
-  if [[ "${ROOT_VAR:-}" == "${__ENVSCP_L[11]:-}" ]]; then
+  if [[ "${MULTI_VAR:-}" == "${__ENVSCP_L[11]:-}" ]]; then
     if [[ ${__ENVSCP_H[11]:-0} -eq 1 ]]; then
-      export ROOT_VAR="${__ENVSCP_O[11]:-}"
+      export MULTI_VAR="${__ENVSCP_O[11]:-}"
+    else
+      if [[ -n "${MULTI_VAR+x}" ]]; then
+        unset MULTI_VAR
+        echo "envscope: removed MULTI_VAR" >&2
+      fi
+    fi
+  fi
+  if [[ "${WILDCARD_VAR:-}" == "${__ENVSCP_L[12]:-}" ]]; then
+    if [[ ${__ENVSCP_H[12]:-0} -eq 1 ]]; then
+      export WILDCARD_VAR="${__ENVSCP_O[12]:-}"
+    else
+      if [[ -n "${WILDCARD_VAR+x}" ]]; then
+        unset WILDCARD_VAR
+        echo "envscope: removed WILDCARD_VAR" >&2
+      fi
+    fi
+  fi
+  if [[ "${ROOT_VAR:-}" == "${__ENVSCP_L[13]:-}" ]]; then
+    if [[ ${__ENVSCP_H[13]:-0} -eq 1 ]]; then
+      export ROOT_VAR="${__ENVSCP_O[13]:-}"
     else
       if [[ -n "${ROOT_VAR+x}" ]]; then
         unset ROOT_VAR
@@ -147,6 +169,9 @@ declare -A __ENVSCP_PARENT=(
   [zone_2]="zone_1"
   [zone_3]="zone_1"
   [zone_4]="zone_2"
+  [zone_5]="zone_1"
+  [zone_6]="zone_1"
+  [zone_7]="zone_1"
 )
 
 __envscope_apply_one_zone() {
@@ -197,6 +222,18 @@ __envscope_apply_one_zone() {
       export LOCALVAR='test-foo-bar'
       echo "envscope: added LOCALVAR" >&2
       ;;
+    zone_5)
+      export MULTI_VAR='applied-to-both'
+      echo "envscope: added MULTI_VAR" >&2
+      ;;
+    zone_6)
+      export MULTI_VAR='applied-to-both'
+      echo "envscope: added MULTI_VAR" >&2
+      ;;
+    zone_7)
+      export WILDCARD_VAR='matched'
+      echo "envscope: added WILDCARD_VAR" >&2
+      ;;
   esac
 }
 
@@ -214,12 +251,17 @@ __envscope_apply_stack() {
 
 __envscope_hook() {
   local target_zone="NONE"
-  case "$PWD" in
-    "/home/user/test/foo/bar" | "/home/user/test/foo/bar/"* ) target_zone="zone_4" ;;
-    "/home/user/test/tilde" | "/home/user/test/tilde/"* ) target_zone="zone_3" ;;
-    "/home/user/test/foo" | "/home/user/test/foo/"* ) target_zone="zone_2" ;;
-    "/home/user/test" | "/home/user/test/"* ) target_zone="zone_1" ;;
-    "/" | "/"* ) target_zone="zone_0" ;;
+  local current_pwd="${PWD:-}"
+  current_pwd="${current_pwd%/}/"
+  case "$current_pwd" in
+    '/home/user/test/wildcard/'*'/bar/'* ) target_zone="zone_7" ;;
+    '/home/user/test/foo/bar/'* ) target_zone="zone_4" ;;
+    '/home/user/test/multi-1/'* ) target_zone="zone_5" ;;
+    '/home/user/test/multi-2/'* ) target_zone="zone_6" ;;
+    '/home/user/test/tilde/'* ) target_zone="zone_3" ;;
+    '/home/user/test/foo/'* ) target_zone="zone_2" ;;
+    '/home/user/test/'* ) target_zone="zone_1" ;;
+    '/'* ) target_zone="zone_0" ;;
   esac
 
   if [[ "$target_zone" != "${__ENVSCP_ZONE:-NONE}" ]]; then
@@ -243,7 +285,9 @@ __envscope_hook() {
       __ENVSCP_L[8]="${TILDE_VAR_MID:-}"
       __ENVSCP_L[9]="${TILDE_PATH_NOT_PATH:-}"
       __ENVSCP_L[10]="${PATH:-}"
-      __ENVSCP_L[11]="${ROOT_VAR:-}"
+      __ENVSCP_L[11]="${MULTI_VAR:-}"
+      __ENVSCP_L[12]="${WILDCARD_VAR:-}"
+      __ENVSCP_L[13]="${ROOT_VAR:-}"
 
     else
       unset __ENVSCP_L __ENVSCP_O __ENVSCP_H
