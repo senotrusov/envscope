@@ -109,10 +109,10 @@ test-shell: build
     echo 'cd $HOME'
   ) -i || true
 
-# Run shell performance benchmarks
-shell-benchmarks:
-  bash benchmarks/var-indirection.bash
-  fish benchmarks/var-indirection.fish
-  zsh  benchmarks/var-indirection.zsh
-  bash benchmarks/var-access.bash
-  zsh  benchmarks/var-access.zsh
+# Run shell performance benchmark
+shell-benchmark:
+  bash benchmark/var-indirection.bash
+  fish benchmark/var-indirection.fish
+  zsh  benchmark/var-indirection.zsh
+  bash benchmark/var-access.bash
+  zsh  benchmark/var-access.zsh
