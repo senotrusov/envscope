@@ -9,6 +9,8 @@
 package main
 
 import (
+	"bufio"
+	"strings"
 	"testing"
 )
 
@@ -101,5 +103,53 @@ func TestParseVarLine(t *testing.T) {
 	err = parseVarLine("REJECT=\"quotes\"", "/home/user", &currentVars, &allVars, seenVars)
 	if err == nil {
 		t.Fatalf("expected error on quotes, got nil")
+	}
+}
+
+func TestParseConfigLinesWithComments(t *testing.T) {
+	input := `
+# Root level comment
+/absolute/path
+  # Indented variable comment
+  VAR1=val1
+  
+  VAR2=val2
+# Comment between blocks
+relative/path
+  VAR3=val3
+  # Another indented comment
+`
+	scanner := bufio.NewScanner(strings.NewReader(input))
+	zones, allVars, err := parseConfigLines(scanner, "/home/user")
+	if err != nil {
+		t.Fatalf("Unexpected error: %v", err)
+	}
+
+	if len(zones) != 2 {
+		t.Fatalf("Expected 2 zones, got %d", len(zones))
+	}
+
+	if zones[0].Path != "/absolute/path" {
+		t.Errorf("Zone 0 path mismatch: %s", zones[0].Path)
+	}
+	if len(zones[0].Vars) != 2 {
+		t.Errorf("Zone 0 expected 2 vars, got %d", len(zones[0].Vars))
+	}
+
+	if zones[1].Path != "/home/user/relative/path" {
+		t.Errorf("Zone 1 path mismatch: %s", zones[1].Path)
+	}
+	if len(zones[1].Vars) != 1 {
+		t.Errorf("Zone 1 expected 1 var, got %d", len(zones[1].Vars))
+	}
+
+	expectedVars := []string{"VAR1", "VAR2", "VAR3"}
+	if len(allVars) != len(expectedVars) {
+		t.Fatalf("Expected %d global vars, got %d", len(expectedVars), len(allVars))
+	}
+	for i, v := range expectedVars {
+		if allVars[i] != v {
+			t.Errorf("Variable list mismatch at index %d: expected %s, got %s", i, v, allVars[i])
+		}
 	}
 }
