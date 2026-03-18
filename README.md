@@ -56,7 +56,7 @@ Unlike many environment managers that search for `.env` files in every directory
    ```zsh
    # Load envscope hook if available
    if command -v envscope &>/dev/null; then
-     source <(envscope hook zsh)
+     builtin source <(envscope hook zsh)
    fi
    ```
 
