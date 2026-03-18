@@ -60,7 +60,7 @@ test: build
   }
 
   generate hook bash > test/hook.bash
-  generate -reportnames hook bash > test/hook-reportnames.bash
+  generate -reportvars hook bash > test/hook-reportnames.bash
 
 # Start a nested Bash shell with the test configuration hook pre-loaded
 test-shell: build
@@ -69,7 +69,7 @@ test-shell: build
   export HOME="$(pwd)/test"
   bash --rcfile <(
     echo 'export PS1="${PS1}(envscope-test) "'
-    bin/envscope -c test/test.conf -reportnames hook bash
+    bin/envscope -c test/test.conf -reportvars hook bash
     echo 'cd $HOME'
   ) -i || true
 

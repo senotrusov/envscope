@@ -32,12 +32,12 @@ type Zone struct {
 // main coordinates the initialization, parsing, and bash output generation.
 func main() {
 	configFlag := flag.String("c", "", "path to the configuration file")
-	reportFlag := flag.Bool("reportnames", false, "report variable changes to stderr")
+	reportFlag := flag.Bool("reportvars", false, "report variable changes to stderr")
 	flag.Parse()
 
 	args := flag.Args()
 	if len(args) < 2 || args[0] != "hook" || args[1] != "bash" {
-		fmt.Fprintln(os.Stderr, "envscope: Usage: envscope [-c config] [-reportnames] hook bash")
+		fmt.Fprintln(os.Stderr, "envscope: Usage: envscope [-c config] [-reportvars] hook bash")
 		os.Exit(1)
 	}
 

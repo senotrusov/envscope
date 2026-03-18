@@ -23,6 +23,7 @@ Unlike many environment managers that search for `.env` files in every directory
 * **Prepend support:** Easily prepend values to `PATH` or other variables using the `+` prefix.
 * **Dynamic value caching:** Dynamic expressions evaluated dynamically each time the scope changes by default. You can opt in to caching for expensive commands or commands that require user interaction (for example hardware-backed credential managers) by adding a `# cache` comment.
 * **Override awareness:** If you manually `export` a variable while inside a managed directory, `envscope` detects the change and does not overwrite it when you leave that scope.
+* **Reporting:** Use the `-reportvars` flag to see which variables are being added or removed when changing directories.
 
 ## Installation
 
@@ -49,6 +50,18 @@ Unlike many environment managers that search for `.env` files in every directory
      builtin source <(envscope hook bash)
    fi
    ```
+
+### Reporting Changes
+
+To get feedback in your terminal whenever `envscope` modifies your environment, update the initialization line in your `~/.bashrc` to include the `-reportvars` flag:
+
+```bash
+builtin source <(envscope -reportvars hook bash)
+```
+
+This will print messages to `stderr` like:
+- `envscope: added PGDATABASE`
+- `envscope: removed TEMP_ENV`
 
 ## Configuration Format
 
