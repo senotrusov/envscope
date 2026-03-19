@@ -102,9 +102,9 @@ test: unit-test build
 test-shell: build
   #!/usr/bin/env bash
   set -euo pipefail
-  export HOME="$(pwd)/test"
+  export HOME="$PWD/test"
   bash --rcfile <(
-    echo 'export PS1="${PS1}(envscope-test) "'
+    echo 'export PS1="${PS1:-}(envscope-test) "'
     bin/envscope -c test/test.conf -reportvars hook bash
     echo 'cd $HOME'
   ) -i || true
