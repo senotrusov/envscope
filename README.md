@@ -10,22 +10,47 @@ SPDX-License-Identifier: Apache-2.0 OR MIT
 
 # envscope
 
-`envscope` is a environment variable manager that lets you define directory-specific variables in a single, centralized configuration file.
+`envscope` is a fast, centralized environment variable manager for your shell. It allows you to automatically load and unload environment variables based on your current directory.
 
-Unlike many environment managers that search for `.env` files in every directory you enter, `envscope` takes a different approach. It parses your global configuration once when the shell starts and generates optimized shell code that integrates with your prompt. This keeps project directories free of hidden configuration files while reducing runtime complexity.
+## The `envscope` approach
+
+Unlike traditional environment managers that require you to scatter hidden configuration files across every project directory and spawn external processes every time you navigate your filesystem, `envscope` takes a different approach:
+
+1. **Centralized configuration:** You define all your directory-specific variables in a single global configuration file (`~/.config/envscope/main.conf`). Your project directories remain clean.
+2. **Zero-overhead execution:** When your shell starts, `envscope` parses your configuration exactly once and compiles it into optimized, native shell code (Bash, Zsh, or Fish). 
+3. **Pure shell logic:** Changing directories triggers pure shell functions to evaluate your current path and apply the correct variables. No external binaries are invoked during navigation, ensuring your prompt remains instant.
+
+## Quick example
+
+Here is what your `~/.config/envscope/main.conf` might look like:
+
+```text
+projects/work
+  AWS_PROFILE=work-prod
+  API_KEY=$(passage show my/work-api-key) # cache
+
+projects/work/microservice-a
+  PGDATABASE=service_a_db
+  +PATH=~/projects/work/microservice-a/bin
+
+sandbox
+  TEMP_ENV=true
+```
+
+With this configuration:
+* Navigating anywhere inside `~/projects/work` sets `AWS_PROFILE` and fetches your `API_KEY`. The `# cache` directive ensures the secure vault is only queried once per shell session.
+* Moving deeper into `~/projects/work/microservice-a` inherits the parent variables, adds `PGDATABASE`, and safely prepends a local `bin` folder to your `PATH`.
+* Leaving these directories automatically cleanly restores your previous `PATH` and unsets the project-specific variables.
 
 ## Features
 
-* **Centralized configuration:** Manage all directory rules in `~/.config/envscope/main.conf`. A different path can be specified via an option.
-* **Fast:** After initialization, everything runs as pure logic native to your shell (`bash`, `zsh`, or `fish`). No external binaries are invoked when changing directories, and no processes are spawned unless explicitly requested in the configuration through dynamic variables.
-* **Hierarchical:** Variables automatically inherit from parent directories.
-* **Robust:** Compatible with `set -euo pipefail`.
-* **Prepend support:** Easily prepend values to `PATH` or other variables using the `+` prefix.
-* **Dynamic value caching:** Dynamic expressions evaluated dynamically each time the scope changes by default. You can opt in to caching for expensive commands or commands that require user interaction (for example hardware-backed credential managers) by adding a `# cache` comment.
-* **Override awareness:** If you manually `export` a variable while inside a managed directory, `envscope` detects the change and does not overwrite it when you leave that scope.
-* **Reporting:** Use the `-reportvars` flag to see which variables are being added or removed when changing directories.
+* **Hierarchical inheritance:** Variables automatically cascade. Deeper directories inherit variables from their parent directories, and can override them or add new ones.
+* **Prepending:** Easily prepend values to existing variables (like `PATH`) using the `+` prefix.
+* **Dynamic value caching:** Evaluate shell commands dynamically for variable values. You can opt-in to session-caching for expensive commands (e.g., querying hardware-backed credential managers).
+* **Manual override protection:** If you manually `export` a managed variable while inside a directory zone, `envscope` detects the change and will not wipe out your manual override when you leave the zone.
+* **Robust & safe:** Fully compatible with strict shell environments (`set -euo pipefail`).
 
-## Installation
+## Installation & setup
 
 1. **Build and install from source:**
 
@@ -68,80 +93,65 @@ Unlike many environment managers that search for `.env` files in every directory
    end
    ```
 
-### Reporting Changes
+> **Note on reloading:** Because `envscope` compiles your configuration into shell functions at startup, any changes you make to `main.conf` will not take effect immediately. You must restart your shell to apply updates.
 
-To get feedback in your terminal whenever `envscope` modifies your environment, update the initialization line in your config file to include the `-reportvars` flag. This will print messages to `stderr` like:
+### Reporting changes
+
+To get feedback in your terminal whenever `envscope` modifies your environment, update the initialization line in your shell config to include the `-reportvars` flag. This will print messages to `stderr` whenever you cross directory boundaries:
 - `envscope: added PGDATABASE`
 - `envscope: removed TEMP_ENV`
 
-## Configuration Format
+## Configuration guide
 
 The configuration file is located at `~/.config/envscope/main.conf`.
 
-- **Paths:** Start at the beginning of the line. Paths starting with `/` are absolute. All other paths are relative to your home directory. You can use a single dot `.` to represent your home directory itself.
-- **Variables:** Must be indented with at least one space or tab. Variables are validated to ensure they conform to POSIX standard naming conventions (`^[a-zA-Z_][a-zA-Z0-9_]*$`).
-- **Prepending:** Use `+VAR=value` to prepend to an existing variable. If the variable is `PATH`, it automatically handles the `:` separator.
-- **Values and Quoting:**
-  - **Plain text:** Values are treated as literal strings and do not require surrounding quotes. They are safely enclosed in single quotes when executed, preserving spaces and special characters. Double quotes around the entire value (e.g., `VAR="val"`) are not currently supported and will return an error.
-  - **Tilde Expansion:** A tilde (`~`) at the beginning of an unquoted value expands to your home directory (e.g., `VAR=~/foo` becomes `/home/user/foo`). Tildes in the middle of a string are treated literally (`VAR=a~/foo`).
-  - **PATH Special Case:** For the `PATH` variable specifically, tildes that immediately follow a colon `:` are also expanded, supporting standard list formats like `PATH=~/bin:/usr/bin:~/.local/bin`.
-  - **Dynamic Values:** You can evaluate shell commands by wrapping the *entire* value in `$()`, such as `$(command)`. These are safely evaluated at runtime.
-  - **Caching:** By default, dynamic values are re-evaluated on each scope change. To cache the result for the current shell session, add a `# cache` comment at the end of the line.
+### Paths & zones
+- **Home relative:** Paths that start at the beginning of the line are treated as relative to your home directory (`~`). You can use a single dot `.` to represent your home directory itself.
+- **Absolute:** Paths starting with `/` are treated as absolute system paths.
+- **Wildcards:** Paths can include the `*` wildcard character, which matches any sequence of characters (including slashes and empty strings). Directory names containing newline characters are not supported.
+  ```text
+  projects/*/src
+    ENV_TYPE=development
+  ```
+- **Multiple Folders:** You can apply the same set of variables to multiple directory paths by listing the paths sequentially before the indented variables block:
+  ```text
+  projects/backend-a
+  projects/backend-b
+    DB_PORT=5432
+  ```
 
-### Multiple Folders
+### Variables
+- **Indentation:** Variable definitions **must** be indented with at least one space or tab under their respective path.
+- **Naming:** Variables are strictly validated against POSIX standard naming conventions (`^[a-zA-Z_][a-zA-Z0-9_]*$`).
+- **Prepending (`+`):** Use `+VAR=value` to safely prepend to an existing variable. If the variable is `PATH`, `envscope` automatically handles the `:` separator syntax for you.
 
-You can easily apply the same set of variables to multiple directory paths by listing them one after the other prior to the indented variables block:
+### Values and quoting
+- **Plain text:** Values are treated as literal strings and do not require surrounding quotes. They are safely enclosed in single quotes internally when executed, preserving spaces and special characters. Double quotes around the entire value (e.g., `VAR="val"`) are not currently supported and will return an error.
+- **Tilde expansion:** A tilde (`~`) at the beginning of an unquoted value expands to your home directory (e.g., `VAR=~/foo` becomes `/home/user/foo`). Tildes in the middle of a string are treated literally (`VAR=a~/foo`).
+- **PATH special Case:** For the `PATH` variable specifically, tildes that immediately follow a colon `:` are also expanded, naturally supporting standard list formats like `PATH=~/bin:/usr/bin:~/.local/bin`.
 
-```text
-projects/backend-a
-projects/backend-b
-  DB_PORT=5432
-```
-
-### Wildcards in Paths
-
-Paths can include the `*` wildcard character, which matches any sequence of characters (including slashes and empty strings). All other characters are matched literally. Directory names containing newline characters are not supported.
-
-```text
-projects/*/src
-  ENV_TYPE=development
-```
-
-### Path Matching & `//` Caveat
-
-`envscope` enforces a strict underlying pattern matching logic by seamlessly normalizing `$PWD` with a trailing slash to accurately distinguish directory boundaries (e.g. differentiating `foo` from `foobar`). 
-
-In some specific OS/shell environments, navigating to `//` (two leading slashes) enters a special network namespace (like UNC paths on Windows environments) or functionally stays as `//` on Linux. If you mistakenly `cd` into an unusual layout like `//home/user`, `envscope` may not correctly match your configured zones against this irregular root structure. Correct your path natively by running `cd /home/user`.
-
-### Example `main.conf`
+### Dynamic execution & caching
+You can evaluate shell commands to dynamically generate variable values by wrapping the *entire* value in `$()`.
 
 ```text
 projects/work
-  PGDATABASE=work_db
+  # Evaluated every time you enter the directory
+  CURRENT_DATE=$(date)
+  
+  # Evaluated once per shell session and cached
   API_KEY=$(passage show my/work-api-key) # cache
-
-projects/work/microservice-a
-  PGDATABASE=service_a_db
-  +PATH=~/projects/work/microservice-a/bin
-
-sandbox
-  TEMP_ENV=true
 ```
+By default, dynamic values are executed and re-evaluated **every time** you enter the directory zone. If the command is slow or requires user input (like a password prompt or a hardware token tap), append a `# cache` comment exactly at the end of the line. `envscope` will execute the command the first time it is needed and cache the result in memory for the lifetime of that shell session.
 
-In the example above, when you `cd` into `~/projects/work/microservice-a`:
-- `PGDATABASE` will be `service_a_db` (overriding the parent).
-- `API_KEY` will be inherited from `projects/work`. Because of the `# cache` comment, the `passage` command will only be run once per shell session.
-- `PATH` will be prepended with the new `bin` directory.
+## How it works under the hood
 
-## How it works
-
-1. **Startup:** When you open a new shell, `envscope hook` runs. It reads your `main.conf`, determines the parent-child relationships between your paths, and generates a series of shell functions.
-2. **Tracking:** Every time your prompt is displayed, the `__envscope_hook` function checks `$PWD` against the generated path rules to find the most specific match.
-3. **State Management:**
-   - When entering a managed directory for the first time, it saves the "outer" (original) state of any variable it is about to change.
-   - When changing directories, it completely restores the outer environment and then re-applies the full stack of variables for the new location, from the top-level parent down to the most specific child.
-   - When leaving all managed directories, it restores all variables to their original values (or unsets them if they didn't exist).
-4. **Safety:** If the current value of a variable does not match the value `envscope` last set, the tool assumes you have manually changed it and refuses to touch it upon leaving a zone, preserving your manual overrides.
+1. **Path specificity:** When matching your current `$PWD` against the zones defined in your config, `envscope` always chooses the **most specific match** (the longest matching path). It then builds a hierarchy from the root parent down to the matched child path.
+2. **State management:**
+   - When entering a managed directory sequence for the first time, it snapshots the "outer" (original) state of any variable it is about to modify.
+   - During directory changes, it completely unloads the current zone by reverting to the saved outer state, then recalculates and applies the full stack of variables for the new location (parent variables first, then child overrides).
+   - Leaving all managed directories entirely restores all variables back to their original snapshot (unsetting them if they did not previously exist).
+3. **Safety & overrides:** Before removing or restoring a variable, `envscope` checks its current value against the value it originally set. If the values differ, the tool assumes you have manually executed an `export VAR=...` override and refuses to touch it, gracefully preserving your local adjustments.
+4. **The `//` caveat:** `envscope` enforces a strict matching logic by normalizing `$PWD` with a trailing slash. If you mistakenly navigate to an irregular root structure like `//home/user` (two leading slashes), `envscope` may not correctly trigger your configurations. When navigating using absolute paths, be mindful of how many leading slashes you include, since `cd /home/user` and `cd //home/user` can have different meanings.
 
 ## License
 
