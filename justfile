@@ -47,6 +47,16 @@ context:
     justfile \
     README.md
 
+short-context:
+  #!/usr/bin/env bash
+  set -euo pipefail
+  printf "%s\n" \
+    cmd/{{project}}/*.go \
+    test/* \
+    go.mod \
+    justfile \
+    README.md
+
 # Run Go unit tests
 unit-test:
   go test -v ./...
