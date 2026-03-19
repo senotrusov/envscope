@@ -1,25 +1,30 @@
 #!/usr/bin/env zsh
-set -euo pipefail
 
-# Set up a mock HOME directory so the ~ expansion in test.conf is predictable
+# Set up strict mode unless explicitly disabled
+if [[ "${ENVSCP_TEST_STRICT:-1}" == "1" ]]; then
+  setopt NO_UNSET ERR_EXIT PIPE_FAIL
+fi
+
+# Set up a mock HOME directory
 export HOME="$(pwd)/test"
-
-# Turn off 'set -e' so we can gracefully capture and count assertion failures
-set +e
 
 FAILURES=0
 
-echo "ZSH: Running Error Handling Tests"
+echo "ZSH: Running Error Handling Tests (Strict: ${ENVSCP_TEST_STRICT:-1})"
 
-# Helper function to assert errors report correctly
+# Helper function to assert errors report correctly.
+# Command substitution output=$(...) will trigger ERR_EXIT if it fails in strict mode.
 assert_error() {
   local name="$1"
   local conf_file="$2"
   local expected_err="$3"
   
   local output code
-  output=$(bin/envscope -c "$conf_file" hook zsh 2>&1 >/dev/null)
-  code=$?
+  if output=$(bin/envscope -c "$conf_file" hook zsh 2>&1 >/dev/null); then
+    code=0
+  else
+    code=$?
+  fi
   
   if [[ $code -eq 0 ]]; then
     echo "FAIL: $name - expected non-zero exit code"
@@ -38,7 +43,7 @@ assert_error_output_empty() {
   local conf_file="$2"
   
   local stdout_output
-  stdout_output=$(bin/envscope -c "$conf_file" hook zsh 2>/dev/null)
+  stdout_output=$(bin/envscope -c "$conf_file" hook zsh 2>/dev/null) || true
   
   if [[ -n "$stdout_output" ]]; then
     echo "FAIL: $name - expected empty stdout on error, got: $stdout_output"

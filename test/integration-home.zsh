@@ -1,8 +1,10 @@
 #!/usr/bin/env zsh
-set -euo pipefail
+
+if [[ "${ENVSCP_TEST_STRICT:-1}" == "1" ]]; then
+  setopt NO_UNSET ERR_EXIT PIPE_FAIL
+fi
 
 export HOME="$(pwd)/test"
-set +e
 FAILURES=0
 
 mkdir -p "$HOME/sub"
@@ -30,7 +32,7 @@ assert_empty() {
   fi
 }
 
-echo "ZSH: Running Home / No-Root Integration Tests"
+echo "ZSH: Running Home Integration Tests (Strict: ${ENVSCP_TEST_STRICT:-1})"
 
 source <(bin/envscope -c test/home.conf hook zsh)
 

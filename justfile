@@ -59,12 +59,19 @@ test: unit-test build
   footer=$(mktemp)
   final_exit_status=0
 
+  # Set color formatting if stdout is a terminal
+  if [ -t 1 ]; then
+    error_prefix="$(printf "setaf 9\nbold" | tput -S 2>/dev/null)"
+    error_postfix="$(tput sgr 0 2>/dev/null)"
+  fi
+
   # Helper function to run commands and capture exit status
   task() {
     "$@"
     if [[ $? -ne 0 ]]; then
       final_exit_status=1
-      echo "FAILED: $*" >> "$footer"
+      echo "${error_prefix}FAILED: $*${error_postfix}"
+      echo "${error_prefix}FAILED: $*${error_postfix}" >> "$footer"
     fi
   }
 
@@ -72,22 +79,30 @@ test: unit-test build
     bin/envscope -c test/test.conf "$@" | sed "s|${HOME}/|/home/user/|g"
   }
 
-  # Use the helper for the scripts
-  task bash test/integration.bash
-  task bash test/integration-home.bash
-  task zsh test/integration.zsh
-  task zsh test/integration-home.zsh
+  test_integration() {
+    task bash test/integration.bash
+    task bash test/integration-home.bash
+    task zsh test/integration.zsh
+    task zsh test/integration-home.zsh
+  }
+
+  # Fish tests are run once as Fish lacks a direct -u equivalent
   task fish test/integration.fish
   task fish test/integration-home.fish
 
-  # For the generate calls, we wrap them in a subshell or call directly
-  # Redirection works fine with the helper function
+  # Run Integration Tests: Standard Mode
+  export ENVSCP_TEST_STRICT=0
+  test_integration
+
+  # Run Integration Tests: Strict Mode
+  export ENVSCP_TEST_STRICT=1
+  test_integration
+  
+  # Generate documentation artifacts
   task generate hook bash > test/hook.bash
   task generate -reportvars hook bash > test/hook-reportnames.bash
-  
   task generate hook fish > test/hook.fish
   task generate -reportvars hook fish > test/hook-reportnames.fish
-  
   task generate hook zsh > test/hook.zsh
   task generate -reportvars hook zsh > test/hook-reportnames.zsh
 

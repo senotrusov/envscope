@@ -1,8 +1,12 @@
 #!/usr/bin/env bash
-set -euo pipefail
 
+if [[ "${ENVSCP_TEST_STRICT:-1}" == "1" ]]; then
+  set -euo pipefail
+fi
+
+# Set up a mock HOME directory so the ~ expansion in test.conf is predictable
 export HOME="$(pwd)/test"
-set +e
+
 FAILURES=0
 
 mkdir -p "$HOME/sub"
@@ -30,7 +34,7 @@ assert_empty() {
   fi
 }
 
-echo "BASH: Running Home / No-Root Integration Tests"
+echo "BASH: Running Home Integration Tests (Strict: ${ENVSCP_TEST_STRICT:-1})"
 
 source <(bin/envscope -c test/home.conf hook bash)
 

@@ -1,15 +1,16 @@
 #!/usr/bin/env bash
-set -euo pipefail
+
+# Set up strict mode unless explicitly disabled
+if [[ "${ENVSCP_TEST_STRICT:-1}" == "1" ]]; then
+  set -euo pipefail
+fi
 
 # Set up a mock HOME directory so the ~ expansion in test.conf is predictable
 export HOME="$(pwd)/test"
 
-# Turn off 'set -e' so we can gracefully capture and count assertion failures
-set +e
-
 FAILURES=0
 
-echo "BASH: Running Error Handling Tests"
+echo "BASH: Running Error Handling Tests (Strict: ${ENVSCP_TEST_STRICT:-1})"
 
 # Helper function to assert errors report correctly
 assert_error() {
@@ -18,9 +19,12 @@ assert_error() {
   local expected_err="$3"
   
   local output code
-  output=$(bin/envscope -c "$conf_file" hook bash 2>&1 >/dev/null)
-  code=$?
-  
+  if output=$(bin/envscope -c "$conf_file" hook bash 2>&1 >/dev/null); then
+    code=0
+  else
+    code=$?
+  fi
+
   if [[ $code -eq 0 ]]; then
     echo "FAIL: $name - expected non-zero exit code"
     FAILURES=$((FAILURES + 1))
@@ -38,7 +42,7 @@ assert_error_output_empty() {
   local conf_file="$2"
   
   local stdout_output
-  stdout_output=$(bin/envscope -c "$conf_file" hook bash 2>/dev/null)
+  stdout_output=$(bin/envscope -c "$conf_file" hook bash 2>/dev/null) || true
   
   if [[ -n "$stdout_output" ]]; then
     echo "FAIL: $name - expected empty stdout on error, got: $stdout_output"
