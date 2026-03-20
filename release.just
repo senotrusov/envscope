@@ -70,8 +70,8 @@ release: ensure-release-tag create-dist publish
 
 # Publish a release on GitHub
 publish:
-  git push origin {{version}}
-  gh release create --draft --fail-on-no-commits --generate-notes --title "{{project}} {{version}}" --verify-tag {{version}} dist/*
+  git push origin v{{version}}
+  gh release create --draft --fail-on-no-commits --generate-notes --title "{{project}} {{version}}" --verify-tag v{{version}} dist/*
 
 # Ensure repo is clean and strictly pointed to by an annotated tag
 ensure-release-tag:
