@@ -6,6 +6,6 @@
 //
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
-module envfold
+module github.com/senotrusov/envfold
 
 go 1.26.1
