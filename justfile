@@ -35,28 +35,6 @@ format:
   mdformat --number *.md
   rg "[^\x00-\x7F]" && true
 
-# Output key project file paths for LLM prompt context
-context:
-  #!/usr/bin/env bash
-  set -euo pipefail
-  echo '$ just test'
-  printf "%s\n" \
-    cmd/{{project}}/*.go \
-    test/* \
-    go.mod \
-    justfile \
-    README.md
-
-short-context:
-  #!/usr/bin/env bash
-  set -euo pipefail
-  printf "%s\n" \
-    cmd/{{project}}/*.go \
-    test/* \
-    go.mod \
-    justfile \
-    README.md
-
 # Run Go unit tests
 unit-test:
   go test -v ./...
